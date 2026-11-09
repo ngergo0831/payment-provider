@@ -91,7 +91,7 @@ Rules:
 
 | Done | # | Task | What you'll learn | Commit message |
 |---|---|---|---|---|
-| [ ] | 11 | `Money` value object: integer minor units, currency exponent table, formatting-free | Why floats and "always 2 decimals" are bugs waiting to happen | `feat: add money value object` |
+| [x] | 11 | `Money` value object: integer minor units, currency exponent table, exact parsing, ADR 0002 | Why floats and "always 2 decimals" are bugs waiting to happen | `feat: add money value object` |
 | [ ] | 12 | `Payment` as a **pure domain class** (no ORM decorators) with its state machine and a `version` field, unit-tested, no DB, no Nest | The core rule: illegal transitions can't corrupt state | `feat: add payment state machine` |
 | [ ] | 13 | **Migration 2**: `payments` (partial unique index, version column) and `webhook_events`; a separate **persistence model + mapper** for `Payment`, repositories with optimistic locking (ADR 0001, option B) | Database-enforced guarantees against double charging and lost updates | `feat: add payment persistence` |
 | [ ] | 14 | `PaymentProvider` **contract**, `MockPaymentProvider`, and a shared **contract test suite** (ADR: provider port) | Designing an integration boundary; testing adapters against one spec | `feat: add payment provider port and mock` |
