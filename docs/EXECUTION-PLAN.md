@@ -68,7 +68,7 @@ Rules:
 |---|---|---|---|---|
 | [x] | 1 | Repo baseline: `.gitignore`, execution plan, README skeleton (`assignment.txt` was already committed as the initial commit) | Repo hygiene, secrets never get committed | `chore: add repo baseline` |
 | [x] | 2 | NestJS skeleton plus `GET /health` with **no database yet**, and Jest running (one test) | Project layout; why Nest 12 needs ESM-mode Jest and TypeScript pinned to 6 | `feat: scaffold NestJS app with health endpoint` |
-| [ ] | 3 | Validated config: fails at startup if env is wrong, plus `.env.example` | Fail-fast configuration | `feat: add validated configuration` |
+| [x] | 3 | Validated config: fails at startup if env is wrong, plus `.env.example` | Fail-fast configuration | `feat: add validated configuration` |
 | [ ] | 4 | Global error handling: domain exceptions, one exception filter, validation pipe, request id | Why this comes before any feature; the single error envelope | `feat: add global exception handling` |
 | [ ] | 5 | Swagger at `/docs` | Documenting endpoints as we add them | `feat: add Swagger` |
 

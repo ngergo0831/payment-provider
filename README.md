@@ -25,6 +25,18 @@ npm test               # run the tests
 npm run lint           # type-check source and tests
 ```
 
+## Configuration
+
+Settings come from environment variables, validated at startup (`backend/src/config/`). If anything is invalid the app
+prints every problem and exits instead of starting half-configured.
+
+```bash
+cd backend
+cp .env.example .env   # optional: all settings have defaults
+```
+
+Real environment variables override values in `.env`. Each setting is documented in `backend/.env.example`.
+
 ## Repository contents
 
 | Path | Purpose |
