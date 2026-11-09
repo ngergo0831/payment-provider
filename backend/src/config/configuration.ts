@@ -17,6 +17,8 @@ export interface AppConfig {
   payments: {
     /** The single plan on sale. Already validated as a real amount by Money. */
     plan: { priceMinor: number; currency: string };
+    /** Milliseconds between outbox deliveries; 0 = timer off. */
+    outboxPollIntervalMs: number;
   };
 }
 
@@ -31,6 +33,9 @@ export const configuration = (): AppConfig => {
     port: env.PORT,
     database: { url: env.DATABASE_URL },
     jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },
-    payments: { plan: { priceMinor: env.PLAN_PRICE_MINOR, currency: env.PLAN_CURRENCY.toUpperCase() } },
+    payments: {
+      plan: { priceMinor: env.PLAN_PRICE_MINOR, currency: env.PLAN_CURRENCY.toUpperCase() },
+      outboxPollIntervalMs: env.OUTBOX_POLL_INTERVAL_MS,
+    },
   };
 };

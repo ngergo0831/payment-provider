@@ -49,6 +49,23 @@ export abstract class PaymentRepository {
   abstract save(payment: Payment, messages?: OutboxMessage[]): Promise<Payment>;
 }
 
+/** A queued outbox message waiting to be delivered. */
+export interface QueuedMessage extends OutboxMessage {
+  /** How many delivery attempts have already failed. */
+  attempts: number;
+}
+
+/** PORT: the delivery side of the outbox (the writing side is `PaymentRepository.save`). */
+export abstract class OutboxRepository {
+  /** Undelivered messages that are due now and have not used up their attempts, oldest first. */
+  abstract findDue(now: Date, maxAttempts: number, limit: number): Promise<QueuedMessage[]>;
+
+  abstract markDelivered(messageId: string, now: Date): Promise<void>;
+
+  /** Counts the failed attempt, keeps the reason for a human, and postpones the next attempt. */
+  abstract markFailed(messageId: string, reason: string, retryAt: Date): Promise<void>;
+}
+
 /** A provider notification as stored in the inbox. */
 export interface InboundEvent {
   /** The provider's own event id: unique, used for de-duplication. */

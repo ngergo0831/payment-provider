@@ -70,9 +70,18 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
       if (result.affected !== 1) throw new PaymentConcurrentModificationError(payment.id);
 
       if (messages.length > 0) {
+        // Timestamps come from the APPLICATION clock, not the database's: the dispatcher decides "is it due?" with the
+        // application clock, and two machines' clocks always differ a little. One clock for scheduling decisions.
+        const now = new Date();
         await manager.insert(
           OutboxRecord,
-          messages.map((message) => ({ id: message.id, type: message.type, payload: message.payload as object })),
+          messages.map((message) => ({
+            id: message.id,
+            type: message.type,
+            payload: message.payload as object,
+            createdAt: now,
+            availableAt: now,
+          })),
         );
       }
     });

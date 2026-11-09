@@ -40,7 +40,10 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
  * Boots the REAL application (real modules, pipes, filter, TypeORM, migrations) against its own freshly
  * created database, so every test file starts from an empty schema and cannot disturb dev data or other files.
  */
-export async function createTestApp(beforeInit?: (app: INestApplication) => void): Promise<TestApp> {
+export async function createTestApp(
+  beforeInit?: (app: INestApplication) => void,
+  env: Record<string, string> = {},
+): Promise<TestApp> {
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
 
@@ -51,6 +54,9 @@ export async function createTestApp(beforeInit?: (app: INestApplication) => void
     NODE_ENV: 'test',
     DATABASE_URL: databaseUrl.toString(),
     JWT_SECRET: TEST_JWT_SECRET,
+    // No background timer in tests: they call the dispatcher themselves, so results are deterministic.
+    OUTBOX_POLL_INTERVAL_MS: '0',
+    ...env,
   });
 
   // Imported only now: ConfigModule reads process.env the moment AppModule is first evaluated.

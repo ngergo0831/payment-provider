@@ -10,6 +10,11 @@ export abstract class CompanyGateway {
   abstract findBillingProfile(companyId: string): Promise<BillingProfile | null>;
 }
 
+/** Payments asks onboarding to activate a company that has paid. Must be idempotent: it may be asked more than once. */
+export abstract class CompanyActivation {
+  abstract activate(companyId: string): Promise<void>;
+}
+
 /** What a company is charged. One fixed plan in this slice; a pricing service would implement this in a real product. */
 export abstract class PlanPricing {
   abstract readonly price: Money;

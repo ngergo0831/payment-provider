@@ -1,4 +1,4 @@
-import { plainToInstance, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import { InvalidMoneyError, Money } from '../payments/domain/money';
 import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
 
@@ -51,6 +51,13 @@ export class EnvironmentVariables {
 
   @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
   PLAN_CURRENCY: string = 'USD';
+
+  // How often queued outbox messages are delivered. 0 turns the timer off (tests trigger delivery themselves).
+  // Number("") is 0, so an EMPTY variable would silently switch delivery off. Map it to NaN so it is rejected instead.
+  @Transform(({ value }) => (value === '' ? NaN : Number(value)))
+  @IsInt()
+  @Min(0)
+  OUTBOX_POLL_INTERVAL_MS: number = 1000;
 }
 
 /**

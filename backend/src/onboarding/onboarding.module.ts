@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
+import { ActivateCompanyUseCase } from './application/activate-company.use-case';
 import { GetOnboardingStatusUseCase } from './application/get-onboarding-status.use-case';
 import { AccountRepository, CompanyRepository, UserRepository } from './application/ports';
 import { RegisterCompanyAdminUseCase } from './application/register-company-admin.use-case';
@@ -20,12 +21,13 @@ import { OnboardingController } from './presentation/onboarding.controller';
   providers: [
     RegisterCompanyAdminUseCase,
     GetOnboardingStatusUseCase,
+    ActivateCompanyUseCase,
     // The binding of port -> implementation. Swapping persistence means changing these three lines
     // (and writing the adapters), nothing in the application layer.
     { provide: CompanyRepository, useClass: TypeOrmCompanyRepository },
     { provide: UserRepository, useClass: TypeOrmUserRepository },
     { provide: AccountRepository, useClass: TypeOrmAccountRepository },
   ],
-  exports: [RegisterCompanyAdminUseCase, CompanyRepository, UserRepository, AccountRepository],
+  exports: [RegisterCompanyAdminUseCase, ActivateCompanyUseCase, CompanyRepository, UserRepository, AccountRepository],
 })
 export class OnboardingModule {}

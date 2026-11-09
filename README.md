@@ -110,6 +110,16 @@ The price comes from configuration (`PLAN_PRICE_MINOR`, `PLAN_CURRENCY`; default
 If the payment provider is down the answer is `503 PAYMENT_PROVIDER_UNAVAILABLE` ("nothing was charged"), and the next call
 resumes the same payment. Starting a payment does not activate the account; that happens after the provider confirms it.
 
+### How a payment activates the account
+
+1. The provider reports the payment as paid, and our side notices it. Saving that status also **queues a "payment
+   succeeded" message in the same database transaction** (the outbox, `docs/adr/0006-transactional-outbox.md`).
+2. A small timer (`OUTBOX_POLL_INTERVAL_MS`, 1 s by default) delivers queued messages. The company becomes `ACTIVE`.
+3. If delivery fails, the error is recorded and it is retried after a growing delay (5 s, 10 s, 20 s, ... at most 5 minutes
+   apart), up to 10 attempts. A message that still fails stays in the `outbox_messages` table, with its error, for a person.
+
+Delivery is at-least-once, so activation is idempotent: delivering the same message twice changes nothing.
+
 Currently only a built-in mock provider is available (see `docs/adr/0005-payment-provider-port.md`).
 
 ## Error format

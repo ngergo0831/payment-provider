@@ -135,6 +135,17 @@ describe('validateEnv', () => {
     });
   });
 
+  describe('OUTBOX_POLL_INTERVAL_MS', () => {
+    it('defaults to 1000, and 0 (timer off) is allowed', () => {
+      expect(validateEnv(valid).OUTBOX_POLL_INTERVAL_MS).toBe(1000);
+      expect(validateEnv({ ...valid, OUTBOX_POLL_INTERVAL_MS: '0' }).OUTBOX_POLL_INTERVAL_MS).toBe(0);
+    });
+
+    it.each([['-1'], ['1.5'], ['fast'], ['']])('rejects %j', (value) => {
+      expect(() => validateEnv({ ...valid, OUTBOX_POLL_INTERVAL_MS: value })).toThrow(/OUTBOX_POLL_INTERVAL_MS/);
+    });
+  });
+
   describe('the plan price', () => {
     it('defaults to 49.00 USD (4900 minor units)', () => {
       const env = validateEnv(valid);
