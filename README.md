@@ -81,6 +81,22 @@ curl -X POST http://localhost:3000/auth/register -H 'content-type: application/j
 Emails are stored trimmed and lower-case (a second registration differing only in case is a `409`). Unknown fields
 and invalid values return `422` listing every problem; see "Error format" below.
 
+## Authentication
+
+Registration returns an `accessToken` (a JWT, valid for `JWT_EXPIRES_IN`, 24 h by default). Send it on protected
+endpoints as `Authorization: Bearer <token>`. In Swagger, click **Authorize** and paste it.
+
+```bash
+curl http://localhost:3000/onboarding/status -H "Authorization: Bearer <accessToken>"
+# { "company": { "name": "Acme Ltd", "status": "PENDING_PAYMENT", ... }, "nextStep": "PAYMENT" }
+```
+
+- **Which company?** Always the one in the token. Endpoints take no company id, so a caller cannot ask for another company's data.
+- **A missing, malformed, expired, forged or wrongly signed token** all return `401` in the standard error shape.
+- Tokens are *signed*, not encrypted: anyone can read the claims (user id, company id, role), but nobody can change them.
+- There is no login or refresh in this slice: losing the token means registering again.
+- `JWT_SECRET` is required (32+ characters). The example in `.env.example` is public and is refused when `NODE_ENV=production`.
+
 ## Error format
 
 Every failing request returns the same JSON shape. Clients branch on `code`, never on `message`.

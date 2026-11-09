@@ -27,6 +27,8 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
       expect(res.body).toEqual({
         user: { id: expect.any(String), email: body.email, fullName: 'Jane Doe', role: 'ADMIN' },
         company: { id: expect.any(String), name: 'Acme Ltd', status: 'PENDING_PAYMENT' },
+        accessToken: expect.any(String),
+        tokenType: 'Bearer',
       });
     });
 
@@ -45,6 +47,7 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
 
     it('exposes nothing beyond the documented fields', async () => {
       const res = await t.http.post('/auth/register').send(payload()).expect(201);
+      expect(Object.keys(res.body).sort()).toEqual(['accessToken', 'company', 'tokenType', 'user']);
       expect(Object.keys(res.body.user).sort()).toEqual(['email', 'fullName', 'id', 'role']);
       expect(Object.keys(res.body.company).sort()).toEqual(['id', 'name', 'status']);
     });

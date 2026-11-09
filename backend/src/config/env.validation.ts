@@ -1,5 +1,8 @@
 import { plainToInstance, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsUrl, Max, Min, validateSync } from 'class-validator';
+import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
+
+/** Every example secret in this repository starts with this, so production can refuse them. */
+const DEV_SECRET_PREFIX = 'dev-only';
 
 export enum Environment {
   Development = 'development',
@@ -29,6 +32,14 @@ export class EnvironmentVariables {
   // Validation messages name the variable, never its value, so the password cannot leak into error output.
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL: string;
+
+  // HS256 needs a secret at least as long as its 256-bit output, or it is brute-forceable. Required, no default.
+  @MinLength(32)
+  JWT_SECRET: string;
+
+  // How long a token stays valid: a number plus a unit (s, m, h, d), e.g. "30m" or "24h".
+  @Matches(/^\d+[smhd]$/, { message: 'JWT_EXPIRES_IN must look like 30m, 24h or 7d' })
+  JWT_EXPIRES_IN: string = '24h';
 }
 
 /**
@@ -42,6 +53,12 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
   if (errors.length > 0) {
     const problems = errors.flatMap((error) => Object.values(error.constraints ?? {}));
     throw new Error(`Invalid environment configuration:\n - ${problems.join('\n - ')}`);
+  }
+
+  // The secret in .env.example is public (it is in the repository). Anyone who knows it can forge tokens, so a
+  // production deployment that copied the example file unchanged must fail loudly instead of running insecurely.
+  if (env.NODE_ENV === Environment.Production && env.JWT_SECRET.startsWith(DEV_SECRET_PREFIX)) {
+    throw new Error('Invalid environment configuration:\n - JWT_SECRET is the public development example; set a real secret');
   }
   return env;
 }

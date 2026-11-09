@@ -85,7 +85,7 @@ Rules:
 |---|---|---|---|---|
 | [x] | 8 | `Company` and `User` entities, **migration 1**, repository ports and TypeORM adapters, architecture test, ADR 0001 | Ports and adapters; why use cases do not import TypeORM; database-enforced rules | `feat: add company and user persistence` |
 | [x] | 9 | `POST /auth/register`: validated DTOs, company + admin created in one transaction, duplicate email returns 409, sample payload in Swagger | Validation vs. database constraint; transactions | `feat: add minimal registration` |
-| [ ] | 10 | JWT issued on register, JWT guard, `@CurrentUser`, `GET /onboarding/status` (companies start `PENDING_PAYMENT`) | JWT claims and guards; tenant scoping starts here | `feat: add JWT and onboarding status` |
+| [x] | 10 | JWT issued on register, JWT guard, `@CurrentUser`, `GET /onboarding/status` (companies start `PENDING_PAYMENT`) | JWT claims and guards; tenant scoping starts here | `feat: add JWT and onboarding status` |
 
 ## Phase 3 · Payment module (the deep part)
 

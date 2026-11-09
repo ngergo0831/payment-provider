@@ -14,6 +14,9 @@ export interface TestApp {
 
 // Connects to the maintenance database `postgres` of the dev container from docker-compose.yml
 // (the `payments` user is its superuser, so it may create databases).
+/** Known to tests so they can mint tokens exactly like the app does (including deliberately flawed ones). */
+export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-at-least-32-chars';
+
 const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://payments:payments@localhost:5432/postgres';
 
 async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
@@ -44,7 +47,11 @@ export async function createTestApp(beforeInit?: (app: INestApplication) => void
   const databaseUrl = new URL(ADMIN_URL);
   databaseUrl.pathname = `/${dbName}`;
 
-  Object.assign(process.env, { NODE_ENV: 'test', DATABASE_URL: databaseUrl.toString() });
+  Object.assign(process.env, {
+    NODE_ENV: 'test',
+    DATABASE_URL: databaseUrl.toString(),
+    JWT_SECRET: TEST_JWT_SECRET,
+  });
 
   // Imported only now: ConfigModule reads process.env the moment AppModule is first evaluated.
   const { AppModule } = await import('../../src/app.module');

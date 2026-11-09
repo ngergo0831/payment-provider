@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { RegisteredAccount } from '../../onboarding/application/register-company-admin.use-case';
 import { CompanyStatus } from '../../onboarding/domain/company.entity';
 import { UserRole } from '../../onboarding/domain/user.entity';
+import { IssuedToken } from '../application/token-issuer';
 
 class RegisteredUserDto {
   @ApiProperty({ format: 'uuid' }) id: string;
@@ -22,10 +23,17 @@ export class RegisteredAccountDto {
   @ApiProperty({ type: RegisteredUserDto }) user: RegisteredUserDto;
   @ApiProperty({ type: RegisteredCompanyDto }) company: RegisteredCompanyDto;
 
-  static from({ admin, company }: RegisteredAccount): RegisteredAccountDto {
+  @ApiProperty({ description: 'Send as `Authorization: Bearer <accessToken>`. In Swagger: click Authorize and paste it.' })
+  accessToken: string;
+
+  @ApiProperty({ example: 'Bearer' })
+  tokenType: 'Bearer';
+
+  static from({ admin, company }: RegisteredAccount, token: IssuedToken): RegisteredAccountDto {
     return {
       user: { id: admin.id, email: admin.email, fullName: admin.fullName, role: admin.role },
       company: { id: company.id, name: company.name, status: company.status },
+      ...token,
     };
   }
 }

@@ -8,6 +8,12 @@ export interface AppConfig {
     /** Contains the password: pass it to the driver, never log it. */
     url: string;
   };
+  jwt: {
+    /** Signing key. Never log it. */
+    secret: string;
+    /** e.g. "24h". */
+    expiresIn: string;
+  };
 }
 
 /**
@@ -20,5 +26,6 @@ export const configuration = (): AppConfig => {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
     database: { url: env.DATABASE_URL },
+    jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },
   };
 };

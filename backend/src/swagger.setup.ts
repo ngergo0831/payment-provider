@@ -23,6 +23,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
         '**Errors.** Every failure uses one shape (see `ErrorResponse`). Branch on `code`; quote `requestId` when reporting a problem.',
     )
     .setVersion('1.0')
+    .addBearerAuth() // adds the Authorize button: paste the accessToken from /auth/register
     .build();
 
   const document = SwaggerModule.createDocument(app, config, { extraModels: [ErrorResponse] });

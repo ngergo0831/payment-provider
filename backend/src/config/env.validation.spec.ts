@@ -1,15 +1,17 @@
 import { Environment, validateEnv } from './env.validation';
 
 const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
+const JWT_SECRET = 'unit-test-secret-that-is-32-chars+';
 /** The smallest valid environment: everything else has a default. */
-const valid = { DATABASE_URL };
+const valid = { DATABASE_URL, JWT_SECRET };
 
 describe('validateEnv', () => {
-  it('applies defaults for everything except DATABASE_URL', () => {
+  it('applies defaults for everything except the required secrets', () => {
     const env = validateEnv(valid);
     expect(env.NODE_ENV).toBe(Environment.Development);
     expect(env.PORT).toBe(3000);
     expect(env.DATABASE_URL).toBe(DATABASE_URL);
+    expect(env.JWT_EXPIRES_IN).toBe('24h');
   });
 
   it('converts PORT from a string to a number', () => {
@@ -55,7 +57,7 @@ describe('validateEnv', () => {
 
   describe('DATABASE_URL', () => {
     it('is required', () => {
-      expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
+      expect(() => validateEnv({ JWT_SECRET })).toThrow(/DATABASE_URL/);
     });
 
     it.each([
@@ -63,7 +65,7 @@ describe('validateEnv', () => {
       ['postgresql://', 'postgresql://payments:pw@db.internal:5432/payments'],
       ['no password', 'postgres://localhost/payments'],
     ])('accepts a %s URL', (_label, url) => {
-      expect(() => validateEnv({ DATABASE_URL: url })).not.toThrow();
+      expect(() => validateEnv({ ...valid, DATABASE_URL: url })).not.toThrow();
     });
 
     it.each([
@@ -72,17 +74,65 @@ describe('validateEnv', () => {
       ['not a URL at all', 'banana'],
       ['empty', ''],
     ])('rejects %s', (_label, url) => {
-      expect(() => validateEnv({ DATABASE_URL: url })).toThrow(/DATABASE_URL/);
+      expect(() => validateEnv({ ...valid, DATABASE_URL: url })).toThrow(/DATABASE_URL/);
     });
 
     it('never puts the password in the error message', () => {
       expect.assertions(2);
       try {
-        validateEnv({ DATABASE_URL: 'mysql://root:hunter2-secret@localhost:3306/db' });
+        validateEnv({ ...valid, DATABASE_URL: 'mysql://root:hunter2-secret@localhost:3306/db' });
       } catch (error) {
         expect((error as Error).message).toContain('DATABASE_URL');
         expect((error as Error).message).not.toContain('hunter2-secret');
       }
     });
   });
+
+  describe('JWT_SECRET', () => {
+    it('is required', () => {
+      expect(() => validateEnv({ DATABASE_URL })).toThrow(/JWT_SECRET/);
+    });
+
+    it('must be at least 32 characters (shorter is brute-forceable)', () => {
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(31) })).toThrow(/JWT_SECRET/);
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(32) })).not.toThrow();
+    });
+
+    it('never appears in the error message', () => {
+      expect.assertions(1);
+      try {
+        validateEnv({ DATABASE_URL, JWT_SECRET: 'short-but-secret' });
+      } catch (error) {
+        expect((error as Error).message).not.toContain('short-but-secret');
+      }
+    });
+  });
+
+  describe('the public example secret', () => {
+    const exampleSecret = 'dev-only-secret-change-me-it-must-be-32+chars';
+
+    it('is fine for development and tests', () => {
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'development' })).not.toThrow();
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'test' })).not.toThrow();
+    });
+
+    it('is REFUSED in production, because anyone who has read the repository knows it', () => {
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'production' })).toThrow(/public development example/);
+    });
+
+    it('a real secret works in production', () => {
+      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(48), NODE_ENV: 'production' })).not.toThrow();
+    });
+  });
+
+  describe('JWT_EXPIRES_IN', () => {
+    it.each(['30s', '15m', '24h', '7d'])('accepts %s', (value) => {
+      expect(validateEnv({ ...valid, JWT_EXPIRES_IN: value }).JWT_EXPIRES_IN).toBe(value);
+    });
+
+    it.each(['24', 'h', '1 h', '-5m', '1w', 'forever', ''])('rejects %j', (value) => {
+      expect(() => validateEnv({ ...valid, JWT_EXPIRES_IN: value })).toThrow(/JWT_EXPIRES_IN/);
+    });
+  });
 });
+

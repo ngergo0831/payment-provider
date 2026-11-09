@@ -3,17 +3,18 @@ import { join, relative, sep } from 'node:path';
 
 /**
  * ARCHITECTURE RULE, enforced by the build instead of by good intentions:
- * application and payments-domain code must not import the database libraries.
+ * application and payments-domain code must not import the database or token libraries.
  * They depend on PORTS (abstract classes); only `infrastructure/` knows TypeORM / pg.
  *
  * Exceptions, deliberate and listed here so they are visible in review:
  *  - onboarding/domain: Company and User are decorated entities (the pragmatic choice for thin entities).
  *  - payments/domain is NOT excepted: Payment is a pure domain class with a separate persistence model.
  */
-const FORBIDDEN_IMPORT = /from\s+['"](typeorm|pg|@nestjs\/typeorm)['"]/;
+const FORBIDDEN_IMPORT =
+  /from\s+['"](typeorm|pg|@nestjs\/typeorm|@nestjs\/jwt|@nestjs\/passport|passport|passport-jwt|jsonwebtoken)['"]/;
 
 const RULES: { name: string; applies: (path: string) => boolean }[] = [
-  { name: 'application layers must not import database libraries', applies: (p) => p.includes(`${sep}application${sep}`) },
+  { name: 'application layers must not import database or token libraries', applies: (p) => p.includes(`${sep}application${sep}`) },
   { name: 'payments domain must stay pure', applies: (p) => p.startsWith(`payments${sep}`) && p.includes(`${sep}domain${sep}`) },
 ];
 
@@ -52,6 +53,9 @@ describe('architecture: dependency rules', () => {
       `import { Repository } from 'typeorm';`,
       `import { Client } from "pg";`,
       `import { InjectRepository } from '@nestjs/typeorm';`,
+      `import { JwtService } from '@nestjs/jwt';`,
+      `import jwt from 'jsonwebtoken';`,
+      `import { Strategy } from 'passport-jwt';`,
     ])('flags: %s', (line) => {
       expect(findForbiddenImports(`import a from 'a';\n${line}\n`)).toEqual([line]);
     });
