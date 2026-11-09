@@ -20,8 +20,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(claims: Partial<JwtClaims>): AuthenticatedUser {
-    // A correctly signed token that lacks our claims (e.g. from an older version) is not usable. Refuse it
-    // rather than let `undefined` flow into queries as a company id.
     const isUsable =
       typeof claims.sub === 'string' &&
       typeof claims.companyId === 'string' &&

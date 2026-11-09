@@ -9,11 +9,6 @@ import { JWT_ALGORITHM } from './infrastructure/jwt.constants';
 import { JwtStrategy } from './infrastructure/jwt.strategy';
 import { JwtAuthGuard } from './presentation/jwt-auth.guard';
 
-/**
- * Everything needed to ISSUE and VERIFY tokens, with no dependency on any feature module.
- * Feature modules import this to use the guard; keeping it free of feature imports is what avoids a cycle
- * (AuthModule -> OnboardingModule -> guard).
- */
 @Module({
   imports: [
     PassportModule,

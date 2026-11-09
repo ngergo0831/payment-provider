@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
-import { Company } from '../domain/company.entity';
-import { normaliseEmail } from '../domain/email';
-import { User } from '../domain/user.entity';
-import { AccountRepository, UserRepository } from './ports';
+import { Injectable } from "@nestjs/common";
+import { EmailAlreadyRegisteredException } from "../../common/errors/exceptions";
+import { Company } from "../domain/company.entity";
+import { normalizeEmail } from "../domain/email";
+import { User } from "../domain/user.entity";
+import { AccountRepository, UserRepository } from "./ports";
 
 export interface RegisterCompanyAdminCommand {
   email: string;
@@ -28,10 +28,12 @@ export class RegisterCompanyAdminUseCase {
     private readonly accounts: AccountRepository,
   ) {}
 
-  async execute(command: RegisterCompanyAdminCommand): Promise<RegisteredAccount> {
+  async execute(
+    command: RegisterCompanyAdminCommand,
+  ): Promise<RegisteredAccount> {
     // Normalised HERE, not only in the HTTP layer: the database rejects non-lower-case emails, so a caller
     // that skips the controller (a script, a future queue consumer) must not be able to trigger a 500.
-    const email = normaliseEmail(command.email);
+    const email = normalizeEmail(command.email);
 
     // Friendly fast path for the common case. It is NOT the guarantee: two requests can both pass this check.
     // The unique index is the guarantee, and the repository turns its failure into the same exception.
@@ -43,9 +45,15 @@ export class RegisterCompanyAdminUseCase {
       name: command.company.name,
       country: command.company.country,
       taxId: command.company.taxId,
-      billingEmail: command.company.billingEmail ? normaliseEmail(command.company.billingEmail) : email,
+      billingEmail: command.company.billingEmail
+        ? normalizeEmail(command.company.billingEmail)
+        : email,
     });
-    const admin = User.createAdmin({ email, fullName: command.fullName, companyId: company.id });
+    const admin = User.createAdmin({
+      email,
+      fullName: command.fullName,
+      companyId: company.id,
+    });
 
     await this.accounts.createCompanyWithAdmin(company, admin);
     return { company, admin };

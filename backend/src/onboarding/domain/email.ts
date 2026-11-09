@@ -4,6 +4,6 @@
  * (Technically the local part of an address may be case-sensitive; in practice no mail provider treats it so,
  * and treating "Ada@x.com" and "ada@x.com" as one account is the safer behaviour.)
  */
-export function normaliseEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }

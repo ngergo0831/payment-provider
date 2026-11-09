@@ -22,7 +22,7 @@ const CODE_BY_HTTP_STATUS: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.NOT_FOUND]: ErrorCode.NOT_FOUND,
 };
 
-type NormalisedError = Pick<ErrorResponse, 'statusCode' | 'code' | 'message' | 'details'>;
+type NormalizedError = Pick<ErrorResponse, 'statusCode' | 'code' | 'message' | 'details'>;
 
 const UNEXPECTED_MESSAGE = 'An unexpected error occurred';
 
@@ -35,7 +35,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = http.getRequest<RequestWithId>();
     const response = http.getResponse<Response>();
 
-    const { statusCode, code, message, details } = this.normalise(exception);
+    const { statusCode, code, message, details } = this.normalize(exception);
     this.log(exception, statusCode, request);
 
     const body: ErrorResponse = {
@@ -49,7 +49,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(statusCode).json(body);
   }
 
-  private normalise(exception: unknown): NormalisedError {
+  private normalize(exception: unknown): NormalizedError {
     if (exception instanceof DomainException) {
       return {
         statusCode: STATUS_BY_KIND[exception.kind],
@@ -81,14 +81,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private log(exception: unknown, statusCode: number, request: RequestWithId): void {
-    // The path only: the query string can carry personal data (?email=...).
     const context = `[${request.id}] ${request.method} ${request.path} -> ${statusCode}`;
 
     if (exception instanceof DomainException) {
       this.logger.warn(`${context} ${exception.message}`);
     } else if (isClientHttpError(exception)) {
-      // The framework's message can quote the request: a malformed JSON body gives `Unexpected token 'e', "email=jane"...`.
-      // So log WHAT KIND of error it was, never its text.
       this.logger.warn(`${context} ${exception.constructor.name}`);
     } else {
       this.logger.error(context, exception instanceof Error ? exception.stack : String(exception));
@@ -96,7 +93,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 }
 
-/** A framework error the CLIENT caused (4xx). A framework 5xx is our fault and is treated like any unexpected error. */
 function isClientHttpError(exception: unknown): exception is HttpException {
   return exception instanceof HttpException && exception.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR;
 }
