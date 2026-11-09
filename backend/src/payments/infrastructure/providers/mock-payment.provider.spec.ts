@@ -3,7 +3,6 @@ import { Money } from '../../domain/money';
 import { PaymentStatus } from '../../domain/payment-status';
 import { describePaymentProviderContract } from '../../../testing/payment-provider.contract';
 
-// 1) The shared contract: everything every provider must do. The mock must pass it in full.
 describePaymentProviderContract('MockPaymentProvider', () => {
   const provider = new MockPaymentProvider();
   return {
@@ -12,12 +11,10 @@ describePaymentProviderContract('MockPaymentProvider', () => {
     drive: (providerRef, outcome) => void provider.simulate(providerRef, outcome as MockOutcome),
     signedWebhook: (providerRef, paymentId) => provider.signedWebhook(providerRef, paymentId),
     invalidSignature: 'not-the-signature',
-    // A signed body that names no payment is "not relevant" to the mock.
     ignoredWebhook: () => ({ rawBody: Buffer.from(JSON.stringify({ type: 'something.else' })), signature: MOCK_WEBHOOK_SIGNATURE }),
   };
 });
 
-// 2) Behaviour specific to the mock: its demo/test controls.
 describe('MockPaymentProvider controls', () => {
   const request = (paymentId = 'p-1') => ({ paymentId, companyId: 'c-1', amount: Money.of(4900, 'USD') });
 
@@ -53,7 +50,7 @@ describe('MockPaymentProvider controls', () => {
     const provider = new MockPaymentProvider();
     const { providerRef } = await provider.createPayment(request());
 
-    provider.simulate(providerRef, MockOutcome.SUCCEED); // the notification is discarded
+    provider.simulate(providerRef, MockOutcome.SUCCEED);
 
     expect((await provider.retrievePayment(providerRef)).status).toBe(PaymentStatus.SUCCEEDED);
   });

@@ -9,7 +9,6 @@ import { OpenPaymentAlreadyExistsError, PaymentRepository } from '../ports/repos
 
 export interface PaymentCheckout {
   payment: Payment;
-  /** What the browser needs to collect card details. Null when the payment is final: nothing left to collect. */
   clientSecret: string | null;
 }
 
@@ -35,7 +34,6 @@ export class StartPaymentUseCase {
   async execute(companyId: string): Promise<PaymentCheckout> {
     const company = await this.companies.findBillingProfile(companyId);
     if (!company) throw new CompanyNotFoundException();
-    // Nothing to collect: and refusing here also stops a second charge for an already-active account.
     if (company.isActive) throw new CompanyAlreadyActiveException();
 
     const checkout = await this.startOrResume(companyId);
@@ -49,8 +47,6 @@ export class StartPaymentUseCase {
   private async startOrResume(companyId: string): Promise<PaymentCheckout> {
     const payment = (await this.payments.findOpenByCompany(companyId)) ?? (await this.createIntent(companyId));
 
-    // The provider is the source of truth: a payment we already know is read back (it may have changed since),
-    // a brand-new one is created at the provider. Either way we get the provider's current record.
     const remote = payment.providerRef
       ? await this.provider.retrievePayment(payment.providerRef)
       : await this.provider.createPayment({ paymentId: payment.id, companyId, amount: payment.amount });
@@ -66,7 +62,6 @@ export class StartPaymentUseCase {
       return payment;
     } catch (error) {
       if (!(error instanceof OpenPaymentAlreadyExistsError)) throw error;
-      // Lost a race with a concurrent request: the winner's payment is the one to use.
       const winner = await this.payments.findOpenByCompany(companyId);
       if (!winner) throw error;
       return winner;

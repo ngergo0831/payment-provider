@@ -19,7 +19,6 @@ function setup() {
   const synchronizer = new PaymentSynchronizer(payments);
   const start = new StartPaymentUseCase(companies, new FixedPricing(), provider, payments, synchronizer);
   const reconcile = new ReconcilePaymentsUseCase(provider, payments, synchronizer);
-  /** A company that has started paying: its payment exists at the provider and is linked. */
   const payer = async (companyId: string) => {
     companies.add(companyId);
     return (await start.execute(companyId)).payment;
@@ -36,7 +35,7 @@ describe('ReconcilePaymentsUseCase', () => {
   it('completes a payment whose webhook never arrived, and queues the "payment succeeded" message', async () => {
     const { provider, payments, reconcile, payer } = await setup();
     const payment = await payer('c1');
-    provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED); // the notification was lost
+    provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
 
     const report = await reconcile.execute(later(minutes(5)));
 
@@ -72,7 +71,7 @@ describe('ReconcilePaymentsUseCase', () => {
       const { provider, reconcile, payer } = await setup();
       const payment = await payer('c1');
       provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
-      await reconcile.execute(later(minutes(5))); // becomes SUCCEEDED
+      await reconcile.execute(later(minutes(5)));
 
       expect(await reconcile.execute(later(minutes(10)))).toEqual({ checked: 0, failed: 0 });
     });
@@ -89,8 +88,8 @@ describe('ReconcilePaymentsUseCase', () => {
       provider.simulate(payment.providerRef as string, MockOutcome.PROCESSING);
 
       expect((await reconcile.execute(later(minutes(5)))).checked).toBe(1);
-      expect((await reconcile.execute(later(minutes(5) + 30_000))).checked).toBe(0); // checked 30 s ago
-      expect((await reconcile.execute(later(minutes(8)))).checked).toBe(1); // quiet again
+      expect((await reconcile.execute(later(minutes(5) + 30_000))).checked).toBe(0);
+      expect((await reconcile.execute(later(minutes(8)))).checked).toBe(1);
     });
   });
 

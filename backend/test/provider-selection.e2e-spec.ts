@@ -10,7 +10,6 @@ const STRIPE_ENV = {
   STRIPE_PUBLISHABLE_KEY: 'pk_test_public_dummy_key',
   STRIPE_WEBHOOK_SECRET: 'whsec_e2e_signing_secret',
 };
-// Used only for its offline signing helper: no request is ever sent with it.
 const signer = new Stripe('sk_test_not_a_real_key');
 
 describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
@@ -69,7 +68,6 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
         created: 1,
         data: { object: { id: intentId, object: 'payment_intent', status: 'succeeded', metadata: { note: 'Árvíztűrő tükörfúrógép' } } },
       });
-      /** Signs exactly the bytes that will be sent (pretty-printed, with non-ASCII text, to make the bytes easy to corrupt). */
       const post = (body: object, options: { secret?: string; timestamp?: number; resend?: string } = {}) => {
         const payload = JSON.stringify(body, null, 2);
         const header = signer.webhooks.generateTestHeaderString({ payload, secret: options.secret ?? STRIPE_ENV.STRIPE_WEBHOOK_SECRET, timestamp: options.timestamp });
@@ -82,7 +80,7 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
 
       it('accepts a correctly signed event. Signature checking needs the EXACT bytes, so this proves the raw body is preserved', async () => {
         const res = await post(event()).expect(200);
-        expect(res.body).toEqual({ received: true, result: 'UNKNOWN_PAYMENT' }); // authentic, but not one of our payments
+        expect(res.body).toEqual({ received: true, result: 'UNKNOWN_PAYMENT' });
       });
 
       it('rejects a different secret', async () => {

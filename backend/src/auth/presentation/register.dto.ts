@@ -12,7 +12,6 @@ import {
 } from 'class-validator';
 import { normaliseEmail } from '../../onboarding/domain/email';
 
-// @Transform runs BEFORE validation: the rules below judge the cleaned-up value, and the use case receives it.
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const email = ({ value }: { value: unknown }) => (typeof value === 'string' ? normaliseEmail(value) : value);
 const upperCase = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value);

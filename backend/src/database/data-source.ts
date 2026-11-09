@@ -11,7 +11,6 @@ try {
   /* no .env file: rely on real environment variables */
 }
 
-/** Used ONLY by the TypeORM CLI. The running app builds its connection in DatabaseModule. */
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,

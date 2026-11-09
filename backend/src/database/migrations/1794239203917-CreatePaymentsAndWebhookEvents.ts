@@ -1,11 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/**
- * Migration 2: payments and the webhook inbox.
- *
- * The two UNIQUE indexes are the point of this migration: they make "two charges for one onboarding"
- * and "the same provider event processed twice" impossible at the database level, whatever the code does.
- */
 export class CreatePaymentsAndWebhookEvents1794239203917 implements MigrationInterface {
   name = 'CreatePaymentsAndWebhookEvents1794239203917';
 
@@ -33,7 +27,6 @@ export class CreatePaymentsAndWebhookEvents1794239203917 implements MigrationInt
         CONSTRAINT "fk_payments_company" FOREIGN KEY ("company_id") REFERENCES "companies" ("id") ON DELETE RESTRICT
       )`);
 
-    // One provider payment can belong to at most one of our payments. (Several rows may have NULL: not linked yet.)
     await queryRunner.query(`CREATE UNIQUE INDEX "uq_payments_provider_ref" ON "payments" ("provider_ref")`);
 
     // THE double-charge guard: a company can have at most ONE open (non-final) payment.
@@ -42,7 +35,6 @@ export class CreatePaymentsAndWebhookEvents1794239203917 implements MigrationInt
       CREATE UNIQUE INDEX "uq_payments_one_open_per_company" ON "payments" ("company_id")
       WHERE "status" IN ('CREATED', 'REQUIRES_ACTION', 'PROCESSING', 'FAILED')`);
 
-    // Inbox of provider notifications: the primary key rejects a second copy of the same event.
     await queryRunner.query(`
       CREATE TABLE "webhook_events" (
         "provider_event_id" character varying(255)   NOT NULL,

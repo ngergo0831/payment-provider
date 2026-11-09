@@ -1,11 +1,8 @@
-// The shapes the backend returns. Kept in step with the presentation DTOs in the backend (and Swagger at /docs).
-
 export type CompanyStatus = 'PENDING_PAYMENT' | 'ACTIVE';
 
 export type PaymentStatus = 'CREATED' | 'REQUIRES_ACTION' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELED';
 
 export interface Money {
-  /** Integer minor units (cents). Never a decimal. */
   amountMinor: number;
   currency: string;
 }
@@ -31,7 +28,6 @@ export interface Payment {
   id: string;
   status: PaymentStatus;
   amount: Money;
-  /** Why the last attempt failed, e.g. `card_declined`; null otherwise. */
   failureCode: string | null;
   providerRef: string | null;
   createdAt: string;
@@ -39,21 +35,17 @@ export interface Payment {
 
 export interface PaymentCheckout {
   payment: Payment;
-  /** For the provider's browser SDK. Null when the payment is already final. */
   clientSecret: string | null;
 }
 
 export interface CheckoutConfig {
   provider: 'stripe' | 'mock';
-  /** Stripe's publishable key (safe to expose); null for the mock. */
   publishableKey: string | null;
   price: Money;
 }
 
-/** What the fake customer / bank can do in mock mode (dev endpoints only). */
 export type MockOutcome = 'succeed' | 'decline' | 'require_action' | 'processing' | 'cancel';
 
-/** Mirrors the backend's ErrorCode enum. Branch on this, never on the message. */
 export type ErrorCode =
   | 'VALIDATION_FAILED'
   | 'BAD_REQUEST'
@@ -70,7 +62,6 @@ export type ErrorCode =
   | 'INTERNAL_ERROR';
 
 export interface FieldError {
-  /** Path to the field; nested fields use dots, e.g. `company.name`. */
   field: string;
   messages: string[];
 }

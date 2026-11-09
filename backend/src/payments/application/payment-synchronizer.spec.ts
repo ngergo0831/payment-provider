@@ -60,7 +60,7 @@ describe('PaymentSynchronizer', () => {
       const saved = await synchronizer.apply(payment.id, remote({ status: PaymentStatus.PROCESSING }));
 
       expect(saved.status).toBe(PaymentStatus.PROCESSING);
-      expect(repo.saveCalls).toBe(3); // two lost races, then success
+      expect(repo.saveCalls).toBe(3);
     });
 
     it('does not write again when the winner already applied the SAME news: no retry storm', async () => {
@@ -70,8 +70,8 @@ describe('PaymentSynchronizer', () => {
       const results = await Promise.all(Array.from({ length: 5 }, () => synchronizer.apply(payment.id, news)));
 
       expect(results.every((saved) => saved.status === PaymentStatus.SUCCEEDED)).toBe(true);
-      expect(repo.saveCalls).toBeLessThanOrEqual(5); // 1 success + up to 4 lost races, and NO retries of those
-      expect((await repo.findById(payment.id))?.version).toBe(1); // written exactly once
+      expect(repo.saveCalls).toBeLessThanOrEqual(5);
+      expect((await repo.findById(payment.id))?.version).toBe(1);
     });
 
     it('gives up after 3 attempts with the conflict error, rather than looping forever', async () => {
@@ -149,7 +149,7 @@ describe('PaymentSynchronizer', () => {
       await expect(synchronizer.apply(payment.id, remote({ amount: Money.of(100, 'USD') }))).rejects.toBeInstanceOf(
         ProviderAmountMismatchError,
       );
-      expect((await repo.findById(payment.id))?.providerRef).toBeNull(); // nothing was recorded
+      expect((await repo.findById(payment.id))?.providerRef).toBeNull();
     });
 
     it('refuses a different currency even with the same number', async () => {

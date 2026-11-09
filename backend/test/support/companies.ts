@@ -2,13 +2,11 @@ import type { TestApp } from './test-app';
 
 export interface RegisteredCompany {
   companyId: string;
-  /** Ready to pass to supertest's `.set(...)`. */
   auth: { Authorization: string };
 }
 
 let registrations = 0;
 
-/** Registers a fresh company (unique email) through the real endpoint and returns its id and auth header. */
 export async function registerCompany(t: TestApp): Promise<RegisteredCompany> {
   const res = await t.http
     .post('/auth/register')
@@ -21,7 +19,6 @@ export async function companyStatus(t: TestApp, company: RegisteredCompany): Pro
   return (await t.http.get('/onboarding/status').set(company.auth).expect(200)).body.company.status as string;
 }
 
-/** For tests of the background timers: polls until the company is ACTIVE or the time is up, and returns the last status. */
 export async function waitForActivation(t: TestApp, company: RegisteredCompany, timeoutMs = 3000): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   let status = await companyStatus(t, company);

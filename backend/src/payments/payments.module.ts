@@ -43,7 +43,6 @@ import { WebhooksController } from './presentation/webhooks.controller';
     OutboxDispatcher,
     PaymentSucceededHandler,
     PaymentBackgroundJobs,
-    // The handlers the dispatcher can deliver to. Supporting a new message type means adding a handler here.
     { provide: OUTBOX_HANDLERS, useFactory: (succeeded: PaymentSucceededHandler) => [succeeded], inject: [PaymentSucceededHandler] },
     { provide: OutboxRepository, useClass: TypeOrmOutboxRepository },
     { provide: CompanyActivation, useClass: OnboardingCompanyActivation },
@@ -52,7 +51,6 @@ import { WebhooksController } from './presentation/webhooks.controller';
     { provide: CompanyGateway, useClass: OnboardingCompanyGateway },
     { provide: PlanPricing, useClass: ConfigPlanPricing },
     {
-      // The composition root for the integration: the ONE place that chooses a concrete provider, from configuration.
       provide: PaymentProvider,
       inject: [ConfigService],
       useFactory: (config: ConfigService<AppConfig, true>): PaymentProvider => {

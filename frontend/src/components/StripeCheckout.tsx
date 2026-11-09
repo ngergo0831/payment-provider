@@ -12,7 +12,6 @@ function stripeFor(publishableKey: string) {
 interface Props {
   publishableKey: string;
   clientSecret: string;
-  /** Stripe accepted the payment details (it may still be processing). The backend learns the result by webhook. */
   onSubmitted: () => void;
 }
 
@@ -26,7 +25,7 @@ export function StripeCheckout({ publishableKey, clientSecret, onSubmitted }: Pr
   useEffect(() => {
     let current = true;
     const failed = () => {
-      stripeByKey.delete(publishableKey); // a reload may succeed: do not remember the failure
+      stripeByKey.delete(publishableKey);
       if (current) setLoadFailed(true);
     };
     stripePromise.then((stripe) => stripe || failed(), failed);
@@ -67,7 +66,6 @@ function CardForm({ onSubmitted }: { onSubmitted: () => void }) {
       redirect: 'if_required',
     });
     if (error) {
-      // e.g. "Your card was declined." The element stays open, so the customer can try another card.
       setMessage(error.message ?? 'The payment could not be completed.');
       setBusy(false);
     } else {

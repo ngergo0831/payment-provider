@@ -14,7 +14,6 @@ export class AuthController {
     private readonly tokens: TokenIssuer,
   ) {}
 
-  /** Thin on purpose: translate HTTP to a command, run the use case, translate the result back. */
   @Post('register')
   @ApiOperation({
     summary: 'Register a company and its first admin',

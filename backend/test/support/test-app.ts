@@ -10,11 +10,9 @@ export interface TestApp {
   app: INestApplication;
   http: ReturnType<typeof request>;
   databaseUrl: string;
-  /** Closes the app AND drops its throw-away database. */
   close(): Promise<void>;
 }
 
-/** Known to tests so they can mint tokens exactly like the app does (including deliberately flawed ones). */
 export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-at-least-32-chars';
 
 // Connects to the maintenance database `postgres` of the dev container from docker-compose.yml
@@ -39,18 +37,11 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
 }
 
 export interface TestAppOptions {
-  /** Runs before init(), e.g. to mount Swagger exactly like main.ts does. */
   beforeInit?: (app: INestApplication) => void;
-  /** Environment overrides on top of the test defaults. */
   env?: Record<string, string>;
-  /** Where log records go instead of the console, e.g. memory, to inspect them. The real AppLogger still filters and redacts. */
   logSink?: LogSink;
 }
 
-/**
- * Boots the REAL application (real modules, pipes, filter, TypeORM, migrations) against its own freshly
- * created database, so every test file starts from an empty schema and cannot disturb dev data or other files.
- */
 export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOptions = {}): Promise<TestApp> {
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
@@ -95,7 +86,7 @@ export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOp
     if (logSink) builder.overrideProvider(LogSink).useValue(logSink);
     const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication({ rawBody: true, bufferLogs: true });
-    app.useLogger(app.get(AppLogger)); // exactly like main.ts
+    app.useLogger(app.get(AppLogger));
     configureApp(app);
     // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
     beforeInit?.(app);
@@ -119,7 +110,6 @@ export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOp
   };
 }
 
-/** Runs a query on the test app's own database, bypassing the app (to inspect what really happened). */
 export async function queryDatabase<Row = Record<string, unknown>>(databaseUrl: string, sql: string): Promise<Row[]> {
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();

@@ -12,7 +12,6 @@ export interface RegisterCompanyAdminCommand {
     name: string;
     country: string;
     taxId?: string;
-    /** Where invoices and receipts go. Defaults to the admin's email. */
     billingEmail?: string;
   };
 }
@@ -22,7 +21,6 @@ export interface RegisteredAccount {
   admin: User;
 }
 
-/** Registers a new company together with its first admin. Knows nothing about HTTP or SQL. */
 @Injectable()
 export class RegisterCompanyAdminUseCase {
   constructor(

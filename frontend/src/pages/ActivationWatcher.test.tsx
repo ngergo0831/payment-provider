@@ -83,7 +83,7 @@ describe('ActivationWatcher', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Check again now' }));
 
     expect(resume).toHaveBeenCalledWith('tok');
-    expect(onPaymentProblem).not.toHaveBeenCalled(); // the provider says it is paid: just keep waiting for activation
+    expect(onPaymentProblem).not.toHaveBeenCalled();
   });
 
   it('"Check again" sends the customer back to pay if the provider says the payment is not going through', async () => {

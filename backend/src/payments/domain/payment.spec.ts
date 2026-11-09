@@ -51,7 +51,7 @@ describe('Payment.applyStatus', () => {
     const payment = newPayment();
     payment.applyStatus(SUCCEEDED, null, T0);
     expect(payment.applyStatus(SUCCEEDED, null, T1)).toBe(TransitionOutcome.UNCHANGED);
-    expect(payment.updatedAt).toEqual(T0); // and nothing was touched
+    expect(payment.updatedAt).toEqual(T0);
   });
 
   describe('a late or out-of-order report can never corrupt a final payment', () => {
@@ -97,7 +97,7 @@ describe('Payment.applyStatus', () => {
       const payment = newPayment();
       payment.applyStatus(FAILED, 'insufficient_funds');
       expect(payment).toMatchObject({ status: FAILED, failureCode: 'insufficient_funds' });
-      expect(payment.isFinal()).toBe(false); // still retryable
+      expect(payment.isFinal()).toBe(false);
     });
 
     it('lets the customer retry on the same payment, and clears the old failure reason', () => {
@@ -186,7 +186,7 @@ describe('snapshots (what the persistence mapper uses)', () => {
     const restored = Payment.restore(payment.toSnapshot());
 
     expect(restored.toSnapshot()).toEqual(payment.toSnapshot());
-    expect(restored.applyStatus(SUCCEEDED)).toBe(TransitionOutcome.APPLIED); // and it still obeys the rules
+    expect(restored.applyStatus(SUCCEEDED)).toBe(TransitionOutcome.APPLIED);
   });
 
   it('a snapshot is a copy: changing it cannot change the payment', () => {

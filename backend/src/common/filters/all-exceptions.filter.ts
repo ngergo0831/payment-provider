@@ -5,23 +5,16 @@ import { ErrorCode } from '../errors/error-codes';
 import { ErrorResponse } from '../http/error-response';
 import { RequestWithId } from '../http/request-id.middleware';
 
-/**
- * Kind -> HTTP status. Typed as Record<ErrorKind, ...>, so adding a new ErrorKind without
- * deciding its status is a COMPILE error, not a forgotten case discovered in production.
- */
 const STATUS_BY_KIND: Record<ErrorKind, HttpStatus> = {
   [ErrorKind.VALIDATION]: HttpStatus.UNPROCESSABLE_ENTITY,
   [ErrorKind.BAD_REQUEST]: HttpStatus.BAD_REQUEST,
   [ErrorKind.UNAUTHENTICATED]: HttpStatus.UNAUTHORIZED,
   [ErrorKind.NOT_FOUND]: HttpStatus.NOT_FOUND,
   [ErrorKind.CONFLICT]: HttpStatus.CONFLICT,
-  // The provider is down or slow: tell the client to retry shortly.
   [ErrorKind.PROVIDER_UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
-  // The provider rejected OUR request (bad key, bad contract): not fixable by the client. 502 = "bad gateway".
   [ErrorKind.PROVIDER_FAILURE]: HttpStatus.BAD_GATEWAY,
 };
 
-/** Framework-raised errors (guards, unknown routes, malformed JSON) get a stable code too. */
 const CODE_BY_HTTP_STATUS: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: ErrorCode.BAD_REQUEST,
   [HttpStatus.UNAUTHORIZED]: ErrorCode.UNAUTHORIZED,
@@ -33,14 +26,6 @@ type NormalisedError = Pick<ErrorResponse, 'statusCode' | 'code' | 'message' | '
 
 const UNEXPECTED_MESSAGE = 'An unexpected error occurred';
 
-/**
- * The single place where ANY thrown error becomes an HTTP response.
- *
- *  - DomainException      -> status from its kind; its (safe) message is returned
- *  - HttpException (4xx)  -> raised by the framework itself (guards, routing, body parsing); status and message kept
- *  - anything else        -> a bug or an outage, including a framework 5xx. The stack is LOGGED, the client only
- *                            sees a generic message, so no SQL, file paths or secrets can leak through it.
- */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -100,14 +85,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const context = `[${request.id}] ${request.method} ${request.path} -> ${statusCode}`;
 
     if (exception instanceof DomainException) {
-      // Our own message, written by us for the client: safe, and one line without a stack so real problems stand out.
       this.logger.warn(`${context} ${exception.message}`);
     } else if (isClientHttpError(exception)) {
       // The framework's message can quote the request: a malformed JSON body gives `Unexpected token 'e', "email=jane"...`.
       // So log WHAT KIND of error it was, never its text.
       this.logger.warn(`${context} ${exception.constructor.name}`);
     } else {
-      // A bug or an outage: the stack is needed to fix it (the logger removes any secret a library quoted in it).
       this.logger.error(context, exception instanceof Error ? exception.stack : String(exception));
     }
   }

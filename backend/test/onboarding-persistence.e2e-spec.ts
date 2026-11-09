@@ -97,7 +97,7 @@ describe('onboarding persistence (real PostgreSQL)', () => {
         EmailAlreadyRegisteredException,
       );
 
-      expect(await companies.findById(second.id)).toBeNull(); // the transaction rolled the company back
+      expect(await companies.findById(second.id)).toBeNull();
     });
 
     it('survives two simultaneous registrations with the same email: exactly one wins', async () => {

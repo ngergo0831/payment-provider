@@ -5,7 +5,6 @@ import { paymentSucceededMessage } from './outbox';
 import { ProviderPayment } from './ports/payment-provider';
 import { PaymentConcurrentModificationError, PaymentRepository } from './ports/repositories';
 
-/** The provider says it will charge a different amount than we asked for. Never proceed: it is a serious inconsistency. */
 export class ProviderAmountMismatchError extends Error {
   constructor(paymentId: string, ours: Money, theirs: Money) {
     super(`Payment ${paymentId}: we asked for ${ours.toString()} but the provider reports ${theirs.toString()}`);
@@ -15,11 +14,6 @@ export class ProviderAmountMismatchError extends Error {
 
 const MAX_ATTEMPTS = 3;
 
-/**
- * THE one place that brings our record of a payment in line with the provider's.
- * Starting a payment, webhooks and reconciliation will all go through here, so every path to the same truth
- * obeys the same rules (the state machine) and the same safety checks.
- */
 @Injectable()
 export class PaymentSynchronizer {
   private readonly logger = new Logger(PaymentSynchronizer.name);
@@ -65,8 +59,6 @@ export class PaymentSynchronizer {
 
       try {
         const saved = await this.payments.save(payment, messages);
-        // After the save, so the log never claims a change that was not stored. The failure code is the provider's
-        // reason ("card_declined"): it contains no personal data.
         if (outcome === TransitionOutcome.APPLIED) {
           const reason = saved.failureCode ? ` (${saved.failureCode})` : '';
           this.logger.log(`Payment ${paymentId}: ${statusBefore} -> ${saved.status}${reason} [${saved.provider} ${remote.providerRef}]`);

@@ -2,9 +2,7 @@ import { Environment, validateEnv } from './env.validation';
 
 const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
 const JWT_SECRET = 'unit-test-secret-that-is-32-chars+';
-/** The smallest valid environment: everything else has a default. */
 const valid = { DATABASE_URL, JWT_SECRET };
-/** Stripe, fully configured. Production requires it, because the mock provider is refused there. */
 const stripe = {
   PAYMENT_PROVIDER: 'stripe',
   STRIPE_SECRET_KEY: 'sk_test_abc123',
@@ -58,7 +56,7 @@ describe('validateEnv', () => {
   it('reports every problem at once, not just the first', () => {
     expect.assertions(3);
     try {
-      validateEnv({ PORT: 'abc', NODE_ENV: 'staging' }); // and DATABASE_URL missing
+      validateEnv({ PORT: 'abc', NODE_ENV: 'staging' });
     } catch (error) {
       const message = (error as Error).message;
       expect(message).toContain('PORT');
@@ -188,7 +186,7 @@ describe('validateEnv', () => {
         try {
           validateEnv({ ...valid, ...stripe, STRIPE_SECRET_KEY: 'TOPSECRET-mistyped-key' });
         } catch (error) {
-          expect((error as Error).message).not.toContain('TOPSECRET'); // names the variable, never the value
+          expect((error as Error).message).not.toContain('TOPSECRET');
         }
       });
     });

@@ -152,7 +152,7 @@ describe('StartPaymentUseCase', () => {
     it('a payment that succeeded at the provider with NO webhook is discovered on resume: SUCCEEDED, nothing left to collect', async () => {
       const { useCase, provider } = setup();
       const { payment } = await useCase.execute(COMPANY);
-      provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED); // the notification never arrives
+      provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
 
       const resumed = await useCase.execute(COMPANY);
 
@@ -170,7 +170,7 @@ describe('StartPaymentUseCase', () => {
       const resumed = await useCase.execute(COMPANY);
 
       expect(resumed.payment.status).toBe(PaymentStatus.SUCCEEDED);
-      expect(resumed.clientSecret).toBeNull(); // our own rule, independent of the provider's good behaviour
+      expect(resumed.clientSecret).toBeNull();
     });
 
     it('a payment the provider canceled (e.g. it expired) is replaced by a FRESH one, not handed back dead', async () => {

@@ -27,43 +27,30 @@ import { PaymentStatus } from '../../domain/payment-status';
  */
 
 export interface CreateProviderPaymentInput {
-  /** OUR payment id. It is the idempotency key: the same id always maps to the same provider payment. */
   paymentId: string;
   companyId: string;
   amount: Money;
 }
 
-/** A snapshot of the provider's record of one payment. */
 export interface ProviderPayment {
-  /** The provider's own id for it (e.g. a Stripe PaymentIntent id). */
   providerRef: string;
   status: PaymentStatus;
-  /** What the provider says it will charge. Callers verify it equals what WE asked for. */
   amount: Money;
-  /** For the browser SDK. Null once the payment is final (nothing left to collect). */
   clientSecret: string | null;
-  /** Provider-neutral reason of the last failed attempt (e.g. `card_declined`), if any. */
   failureCode: string | null;
 }
 
-/** An authenticated notification from the provider. A TRIGGER to look at a payment, not the truth about it. */
 export interface ProviderEvent {
-  /** The provider's unique event id, used for de-duplication. */
   id: string;
   type: string;
-  /** The provider's id of the payment the event is about. */
   providerRef: string;
-  /** OUR payment id, if the provider echoed our metadata back: a fallback way to find the payment. */
   paymentId: string | null;
-  /** The original event, stored in the inbox for audit. */
   raw: unknown;
 }
 
 export abstract class PaymentProvider {
-  /** Short, stable name stored with each payment, e.g. "stripe" or "mock". */
   abstract readonly name: string;
 
-  /** Which HTTP header carries the webhook signature (lower-case), e.g. "stripe-signature". The controller stays provider-neutral. */
   abstract readonly webhookSignatureHeader: string;
 
   /** @throws PaymentProviderUnavailableException | PaymentProviderFailureException */

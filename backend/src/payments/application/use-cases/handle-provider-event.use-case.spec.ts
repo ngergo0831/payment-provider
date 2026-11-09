@@ -41,7 +41,7 @@ describe('HandleProviderEventUseCase', () => {
 
     expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
     expect(inbox.processedAt.get(event.id)).toBeInstanceOf(Date);
-    expect(payments.outbox).toHaveLength(1); // "payment succeeded" queued
+    expect(payments.outbox).toHaveLength(1);
   });
 
   describe('duplicates', () => {
@@ -74,7 +74,7 @@ describe('HandleProviderEventUseCase', () => {
       const success = provider.simulate(providerRef, MockOutcome.SUCCEED);
       await handle.execute(success);
 
-      await handle.execute(staleDecline); // delivered late, out of order
+      await handle.execute(staleDecline);
 
       expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
     });
@@ -85,7 +85,7 @@ describe('HandleProviderEventUseCase', () => {
 
       await handle.execute(claim);
 
-      expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.CREATED); // the provider says it is not paid
+      expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.CREATED);
       expect(payments.outbox).toEqual([]);
     });
   });
@@ -135,7 +135,7 @@ describe('HandleProviderEventUseCase', () => {
       expect(inbox.processedAt.get(event.id)).toBeNull();
       expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.CREATED);
 
-      provider.setOutage(false); // the provider retries its webhook
+      provider.setOutage(false);
       expect(await handle.execute(event)).toBe(EventHandlingResult.PROCESSED);
       expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
     });

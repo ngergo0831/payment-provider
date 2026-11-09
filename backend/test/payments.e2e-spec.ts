@@ -17,7 +17,6 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
   });
   afterEach(() => provider.setOutage(false));
 
-  /** A registered company with its token, plus shortcuts for the calls under test. */
   const newAdmin = async () => {
     const company = await registerCompany(t);
     return {
@@ -105,7 +104,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
 
       expect(recovered.body.payment.id).toBe(orphan.id);
       expect(recovered.body.payment.providerRef).toEqual(expect.any(String));
-      expect(await admin.paymentRows()).toHaveLength(1); // still ONE payment: no duplicate from the failed attempt
+      expect(await admin.paymentRows()).toHaveLength(1);
     });
 
     it('does not leak provider internals in the error', async () => {
@@ -134,7 +133,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
     it('discovers a payment that succeeded with no webhook ever arriving', async () => {
       const admin = await newAdmin();
       const { body } = await admin.start().expect(200);
-      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED); // the notification is lost
+      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
 
       const resumed = await admin.start().expect(200);
 
@@ -233,8 +232,8 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       const { body } = await admin.start().expect(200);
       provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
 
-      expect((await admin.get(body.payment.id).expect(200)).body.status).toBe('CREATED'); // provider not asked yet
-      await admin.start().expect(200); // a resume syncs
+      expect((await admin.get(body.payment.id).expect(200)).body.status).toBe('CREATED');
+      await admin.start().expect(200);
       expect((await admin.get(body.payment.id).expect(200)).body.status).toBe('SUCCEEDED');
     });
 

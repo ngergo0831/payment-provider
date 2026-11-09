@@ -8,7 +8,6 @@ import { PaymentProvider } from '../payments/application/ports/payment-provider'
 import { Money } from '../payments/domain/money';
 import { PaymentStatus } from '../payments/domain/payment-status';
 
-/** What a test may make the "remote" payment do. Providers map these onto whatever they can really simulate. */
 export type RemoteOutcome = 'succeed' | 'decline' | 'require_action' | 'processing' | 'cancel';
 
 /**
@@ -17,17 +16,11 @@ export type RemoteOutcome = 'succeed' | 'decline' | 'require_action' | 'processi
  */
 export interface ContractSubject {
   provider: PaymentProvider;
-  /** Make every call fail as if the provider were down, and undo it. */
   outage?: { start(): void; stop(): void };
-  /** Move a remote payment into a state, as the customer or bank would. */
   drive?: (providerRef: string, outcome: RemoteOutcome) => void | Promise<void>;
-  /** Which outcomes `drive` can really produce. Omit = all. (A real card payment never visibly sits in "processing".) */
   supportedOutcomes?: RemoteOutcome[];
-  /** Build a correctly signed webhook delivery for the given payment. */
   signedWebhook?: (providerRef: string, paymentId: string) => { rawBody: Buffer; signature: string };
-  /** A signature value that must be rejected. */
   invalidSignature?: string;
-  /** A correctly signed delivery that the provider should ignore (an event type or payload we do not handle). */
   ignoredWebhook?: () => { rawBody: Buffer; signature: string };
 }
 
@@ -46,7 +39,6 @@ const input = (overrides: Partial<{ paymentId: string; amount: Money }> = {}) =>
  */
 export function describePaymentProviderContract(name: string, makeSubject: () => ContractSubject): void {
   describe(`PaymentProvider contract: ${name}`, () => {
-    // Decides WHICH tests apply (a test is skipped when the provider lacks the hook it needs). Never used to run tests.
     const probe = makeSubject();
 
     let subject: ContractSubject;
@@ -57,7 +49,6 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
       provider = subject.provider;
     });
 
-    /** Can this provider be driven into that outcome? */
     const canDrive = (...outcomes: RemoteOutcome[]) =>
       outcomes.every((outcome) => probe.drive && (!probe.supportedOutcomes || probe.supportedOutcomes.includes(outcome)));
 

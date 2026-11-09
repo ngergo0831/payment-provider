@@ -14,7 +14,6 @@ export interface RegisterFormValues {
 
 const EMPTY: RegisterFormValues = { fullName: '', email: '', companyName: '', country: '', taxId: '' };
 
-/** Which server field each input belongs to, so the backend's `details` can be shown next to the right input. */
 const SERVER_FIELD: Record<keyof RegisterFormValues, string> = {
   fullName: 'fullName',
   email: 'email',

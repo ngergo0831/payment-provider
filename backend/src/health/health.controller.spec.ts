@@ -6,7 +6,6 @@ import { DataSource } from 'typeorm';
 import { DatabaseHealthIndicator } from './database-health.indicator';
 import { HealthController } from './health.controller';
 
-/** A stand-in for the database: tests decide how `query` behaves. */
 const fakeDataSource = (query: () => Promise<unknown>) => ({ query: jest.fn(query) }) as unknown as DataSource;
 
 describe('DatabaseHealthIndicator', () => {
@@ -45,7 +44,7 @@ describe('DatabaseHealthIndicator', () => {
 
     const started = Date.now();
     await expect(indicator.isUp(50)).resolves.toBe(false);
-    expect(Date.now() - started).toBeLessThan(1000); // returned after ~50 ms, did not hang
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 });
 

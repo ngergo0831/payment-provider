@@ -32,7 +32,6 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
   };
   const simulate = (providerRef: string, outcome: string, deliverWebhook?: boolean) =>
     t.http.post(`/dev/mock-payments/${providerRef}/simulate`).send({ outcome, deliverWebhook });
-  /** A webhook exactly as a provider would POST it: raw JSON bytes plus the signature header. */
   // `null` means "send NO signature". (`undefined` would trigger the default value, i.e. silently send a valid one.)
   const deliver = (body: object, signature: string | null = MOCK_WEBHOOK_SIGNATURE) => {
     const request = t.http.post('/webhooks/payments').set('Content-Type', 'application/json');
@@ -45,7 +44,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
     it('applies a correctly signed notification: the payment is SUCCEEDED, with no customer action involved', async () => {
       const admin = await newAdmin();
       const { body } = await admin.start().expect(200);
-      await simulate(body.payment.providerRef, 'succeed', false).expect(200); // provider changed, nobody told us yet
+      await simulate(body.payment.providerRef, 'succeed', false).expect(200);
 
       const hook = provider.signedWebhook(body.payment.providerRef, body.payment.id);
       const res = await deliver(JSON.parse(hook.rawBody.toString())).expect(200);
@@ -64,8 +63,8 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       await deliver(forged, 'attackers-guess').expect(400);
 
       expect(missing.body).toMatchObject({ statusCode: 400, code: 'INVALID_WEBHOOK_SIGNATURE', requestId: expect.any(String) });
-      expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED'); // untouched
-      expect(await inboxRow('evt_forged')).toHaveLength(0); // not even recorded
+      expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED');
+      expect(await inboxRow('evt_forged')).toHaveLength(0);
     });
 
     it('recognises a redelivery of the same event as a DUPLICATE', async () => {
@@ -106,7 +105,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
     });
 
     it('does not need a JWT: the signature is the credential', async () => {
-      await deliver({ type: 'ping' }).expect(200); // no Authorization header at all
+      await deliver({ type: 'ping' }).expect(200);
     });
   });
 
@@ -120,12 +119,12 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       provider.setOutage(true);
       const down = await deliver(event).expect(503);
       expect(down.body.code).toBe('PAYMENT_PROVIDER_UNAVAILABLE');
-      expect(await inboxRow('evt_retry_1')).toEqual([{ processed_at: null }]); // seen, but not finished
+      expect(await inboxRow('evt_retry_1')).toEqual([{ processed_at: null }]);
 
       provider.setOutage(false);
       const retry = await deliver(event).expect(200);
 
-      expect(retry.body.result).toBe('PROCESSED'); // handled, NOT skipped as a duplicate
+      expect(retry.body.result).toBe('PROCESSED');
       expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('SUCCEEDED');
     });
   });
@@ -138,7 +137,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const sim = await simulate(body.payment.providerRef, 'succeed').expect(200);
       expect(sim.body).toEqual({ webhook: 'PROCESSED' });
       expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('SUCCEEDED');
-      expect(await admin.companyStatus()).toBe('PENDING_PAYMENT'); // delivery of the message comes next
+      expect(await admin.companyStatus()).toBe('PENDING_PAYMENT');
 
       await dispatcher.dispatchDue();
 
@@ -165,7 +164,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
 
       expect(sim.body).toEqual({ webhook: 'NOT_DELIVERED' });
       expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED');
-      await admin.start().expect(200); // resume discovers it
+      await admin.start().expect(200);
       expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('SUCCEEDED');
     });
 
@@ -202,7 +201,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const webhook = doc.paths['/webhooks/payments'].post as { responses: Record<string, unknown>; security?: unknown };
 
       expect(Object.keys(webhook.responses)).toEqual(expect.arrayContaining(['200', '400']));
-      expect(webhook.security).toBeUndefined(); // public: the signature is the credential
+      expect(webhook.security).toBeUndefined();
       expect(doc.paths['/dev/mock-payments/{providerRef}/simulate'].post).toMatchObject({ tags: ['dev (mock provider only)'] });
     });
   });

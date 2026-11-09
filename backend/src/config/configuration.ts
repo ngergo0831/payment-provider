@@ -2,7 +2,6 @@ import { LogFormat } from '../common/logging/console-log-sink';
 import { LogLevelName } from '../common/logging/app-logger';
 import { Environment, PaymentProviderName, validateEnv } from './env.validation';
 
-/** The typed, structured view of configuration the rest of the app depends on. */
 export interface AppConfig {
   nodeEnv: Environment;
   logLevel: LogLevelName;
@@ -13,28 +12,19 @@ export interface AppConfig {
     url: string;
   };
   jwt: {
-    /** Signing key. Never log it. */
     secret: string;
-    /** e.g. "24h". */
     expiresIn: string;
   };
   payments: {
     provider: PaymentProviderName;
     /** Only filled in when the provider is Stripe. The secret key and webhook secret must never be logged or returned. */
     stripe: { secretKey: string; publishableKey: string; webhookSecret: string };
-    /** The single plan on sale. Already validated as a real amount by Money. */
     plan: { priceMinor: number; currency: string };
-    /** Milliseconds between outbox deliveries; 0 = timer off. */
     outboxPollIntervalMs: number;
-    /** Milliseconds between reconciliation runs; 0 = timer off. */
     reconcileIntervalMs: number;
   };
 }
 
-/**
- * Validates the environment, then maps flat variables to the structured AppConfig.
- * Runs once at startup (ConfigModule `load`): an invalid environment throws here and the process exits.
- */
 export const configuration = (): AppConfig => {
   const env = validateEnv(process.env);
   return {

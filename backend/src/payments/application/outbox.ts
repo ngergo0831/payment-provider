@@ -12,7 +12,6 @@ export interface OutboxMessage {
   payload: unknown;
 }
 
-/** "This payment succeeded": the company that paid should now be activated. */
 export const PAYMENT_SUCCEEDED = 'payment.succeeded';
 
 export interface PaymentSucceededPayload {

@@ -1,10 +1,6 @@
 import { buildOpenApiDocument, DOCS_PATH, setupSwagger } from '../src/swagger.setup';
 import { createTestApp, TestApp } from './support/test-app';
 
-/**
- * Runs against the WHOLE application, so as endpoints are added in later tasks these checks
- * automatically cover them: an undocumented error response or a missing description fails here.
- */
 describe('Swagger / OpenAPI', () => {
   let t: TestApp;
 

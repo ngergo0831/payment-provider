@@ -7,7 +7,6 @@ export interface OutboxHandler {
   handle(payload: unknown): Promise<void>;
 }
 
-/** Injection token for the list of handlers (the dispatcher does not know which exist). */
 export const OUTBOX_HANDLERS = Symbol('OUTBOX_HANDLERS');
 
 export const MAX_ATTEMPTS = 10;
@@ -16,7 +15,6 @@ const BASE_DELAY_MS = 5_000;
 const MAX_DELAY_MS = 5 * 60_000;
 const MAX_REASON_LENGTH = 500;
 
-/** Wait 5 s after the 1st failure, 10 s after the 2nd, 20 s ... never more than 5 minutes. */
 export function retryDelayMs(failedAttempts: number): number {
   return Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** (failedAttempts - 1));
 }
@@ -26,15 +24,6 @@ export interface DispatchReport {
   failed: number;
 }
 
-/**
- * Delivers queued outbox messages to their handlers.
- *
- *  - AT-LEAST-ONCE: if we crash after a handler succeeded but before marking the message delivered, it is delivered again.
- *    That is why handlers must be idempotent.
- *  - One failing message never blocks the others.
- *  - A failure is recorded and retried later with growing delays; after MAX_ATTEMPTS the message is left in the table,
- *    undelivered and with its last error, for a person to look at (it is simply no longer picked up).
- */
 @Injectable()
 export class OutboxDispatcher {
   private readonly logger = new Logger(OutboxDispatcher.name);

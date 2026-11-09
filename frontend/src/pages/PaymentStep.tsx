@@ -8,12 +8,7 @@ import type { Session } from '../session';
 
 interface Props {
   session: Session;
-  /**
-   * The payment went through on the customer's side; what remains is waiting for the company to be activated.
-   * Receives the payment id when there is one, so the watcher can also notice a payment that fails afterwards.
-   */
   onSubmitted: (paymentId?: string) => void;
-  /** The token is no longer accepted (it lasts 24 hours and there is no refresh). */
   onSessionExpired: () => void;
 }
 
@@ -22,7 +17,6 @@ type State =
   | { phase: 'error'; error: ApiError; config?: CheckoutConfig }
   | { phase: 'ready'; config: CheckoutConfig; checkout: PaymentCheckout };
 
-/** Statuses where there is nothing left for the customer to do here, e.g. after a page reload mid-payment. */
 const SUBMITTED = new Set(['PROCESSING', 'SUCCEEDED']);
 
 export function PaymentStep({ session, onSubmitted, onSessionExpired }: Props) {
@@ -33,7 +27,6 @@ export function PaymentStep({ session, onSubmitted, onSessionExpired }: Props) {
     callbacks.current = { onSubmitted, onSessionExpired };
   });
 
-  // Safe to run any number of times: the backend resumes the company's one open payment instead of creating another.
   const load = useCallback(async () => {
     setState({ phase: 'loading' });
     let config: CheckoutConfig | undefined;
@@ -44,8 +37,8 @@ export function PaymentStep({ session, onSubmitted, onSessionExpired }: Props) {
       else setState({ phase: 'ready', config, checkout });
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
-      if (error.status === 401) callbacks.current.onSessionExpired(); // otherwise "Try again" would fail the same way forever
-      else if (error.code === 'COMPANY_ALREADY_ACTIVE') callbacks.current.onSubmitted(); // paid in another tab: the watcher will see ACTIVE
+      if (error.status === 401) callbacks.current.onSessionExpired();
+      else if (error.code === 'COMPANY_ALREADY_ACTIVE') callbacks.current.onSubmitted();
       else setState({ phase: 'error', error, config });
     }
   }, [session.token]);

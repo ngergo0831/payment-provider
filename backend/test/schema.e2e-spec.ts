@@ -3,7 +3,6 @@ import { DataSource } from 'typeorm';
 import { OPEN_STATUSES, PaymentStatus } from '../src/payments/domain/payment-status';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
-/** The database schema as a whole: what exists, that it matches the code, and that its rules match the domain's. */
 describe('database schema (real PostgreSQL)', () => {
   let t: TestApp;
 
@@ -60,7 +59,7 @@ describe('database schema (real PostgreSQL)', () => {
       if ((OPEN_STATUSES as readonly string[]).includes(status)) {
         await expect(second).rejects.toThrow(/uq_payments_one_open_per_company/);
       } else {
-        await expect(second).resolves.toBeDefined(); // a final payment does not block a new attempt
+        await expect(second).resolves.toBeDefined();
       }
     });
   });

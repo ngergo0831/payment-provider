@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common';
 import { PeriodicTask } from './periodic-task';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-/** Waits for a condition instead of a fixed time, so a busy CI machine cannot make the test flaky. */
 async function waitUntil(condition: () => boolean, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!condition()) {
@@ -32,7 +31,7 @@ describe('PeriodicTask', () => {
     const atStop = runs;
     await sleep(40);
 
-    expect(runs).toBe(atStop); // nothing after stop()
+    expect(runs).toBe(atStop);
   });
 
   it('is OFF when the interval is 0 (tests then trigger the job themselves)', async () => {
@@ -98,7 +97,7 @@ describe('PeriodicTask', () => {
       5,
     );
     task.start();
-    await waitUntil(() => started); // a run is now in progress
+    await waitUntil(() => started);
     expect(finished).toBe(false);
 
     await task.stop();

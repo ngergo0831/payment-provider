@@ -7,7 +7,6 @@ import { MockOutcome, MockPaymentProvider } from '../src/payments/infrastructure
 import { companyStatus, registerCompany, waitForActivation } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
-/** register -> pay -> (provider says paid) -> message delivered -> company ACTIVE */
 describe('the full payment flow (real HTTP + PostgreSQL)', () => {
   let t: TestApp;
   let provider: MockPaymentProvider;
@@ -39,7 +38,6 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
         ),
     };
   };
-  /** The provider reports the payment as paid, and our side notices (here: the customer resumes checkout). */
   const payAndNotice = async (admin: Awaited<ReturnType<typeof newAdmin>>) => {
     const { body } = await admin.start().expect(200);
     provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
@@ -53,7 +51,6 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
 
     await payAndNotice(admin);
 
-    // The payment is SUCCEEDED and the message is queued, but delivery has not happened yet.
     expect(await admin.companyStatus()).toBe('PENDING_PAYMENT');
     expect(await admin.outbox()).toHaveLength(1);
 
@@ -113,9 +110,9 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
       expect(await admin.companyStatus()).toBe('PENDING_PAYMENT');
       const [afterFailure] = await admin.outbox();
       expect(afterFailure).toMatchObject({ processed_at: null, attempts: 1, last_error: 'database hiccup while activating' });
-      expect(afterFailure.available_at.getTime()).toBeGreaterThan(Date.now()); // postponed
+      expect(afterFailure.available_at.getTime()).toBeGreaterThan(Date.now());
 
-      expect(await dispatcher.dispatchDue()).toEqual({ delivered: 0, failed: 0 }); // not due yet: no hammering
+      expect(await dispatcher.dispatchDue()).toEqual({ delivered: 0, failed: 0 });
 
       const later = new Date(Date.now() + 60_000);
       expect(await dispatcher.dispatchDue(later)).toEqual({ delivered: 1, failed: 0 });
@@ -129,12 +126,11 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
       const [{ id }] = await admin.outbox();
       const activatedAt = await queryDatabase<{ activated_at: Date }>(t.databaseUrl, `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`);
 
-      // Simulate "crashed before marking it delivered": the same message becomes due again.
       await queryDatabase(t.databaseUrl, `UPDATE outbox_messages SET processed_at = NULL WHERE id = '${id}'`);
       expect(await dispatcher.dispatchDue()).toEqual({ delivered: 1, failed: 0 });
 
       const again = await queryDatabase<{ activated_at: Date }>(t.databaseUrl, `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`);
-      expect(again).toEqual(activatedAt); // the activation time did not move
+      expect(again).toEqual(activatedAt);
       expect(await admin.companyStatus()).toBe('ACTIVE');
     });
   });

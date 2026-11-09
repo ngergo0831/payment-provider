@@ -17,7 +17,6 @@ describe('payment persistence (real PostgreSQL)', () => {
   let webhookEvents: WebhookEventRepository;
   let counter = 0;
 
-  /** FK rule: a payment needs a real company, so each test gets its own. */
   const newCompany = async (): Promise<string> => {
     const company = Company.register({ name: `Co ${++counter}`, country: 'HU', billingEmail: 'a@b.co' });
     await t.app.get(CompanyRepository).save(company);
@@ -140,7 +139,7 @@ describe('payment persistence (real PostgreSQL)', () => {
       const saved = await payments.save(loaded);
 
       expect(saved.version).toBe(1);
-      expect(loaded.version).toBe(0); // the object passed in still carries the version it was loaded with
+      expect(loaded.version).toBe(0);
       expect(await payments.findById(payment.id)).toMatchObject({ status: PaymentStatus.PROCESSING, providerRef: 'pi_saved', version: 1 });
     });
 
@@ -159,13 +158,13 @@ describe('payment persistence (real PostgreSQL)', () => {
 
     it('REFUSES a stale write instead of silently overwriting (no lost update)', async () => {
       const original = await stored(await newCompany());
-      const first = (await payments.findById(original.id)) as Payment; // two readers load the same payment...
+      const first = (await payments.findById(original.id)) as Payment;
       const second = (await payments.findById(original.id)) as Payment;
 
-      first.applyStatus(PaymentStatus.SUCCEEDED); // ...one saves first...
+      first.applyStatus(PaymentStatus.SUCCEEDED);
       await payments.save(first);
 
-      second.applyStatus(PaymentStatus.FAILED, 'late'); // ...the other still has the old version
+      second.applyStatus(PaymentStatus.FAILED, 'late');
       await expect(payments.save(second)).rejects.toBeInstanceOf(PaymentConcurrentModificationError);
 
       expect(await payments.findById(original.id)).toMatchObject({ status: PaymentStatus.SUCCEEDED, failureCode: null });
@@ -244,11 +243,11 @@ describe('payment persistence (real PostgreSQL)', () => {
     it('UNDOES the payment change when the message cannot be written: all or nothing', async () => {
       const payment = await stored(await newCompany());
       payment.applyStatus(PaymentStatus.SUCCEEDED);
-      const impossible = message('x'.repeat(101)); // longer than the column allows, so the INSERT fails
+      const impossible = message('x'.repeat(101));
 
       await expect(payments.save(payment, [impossible])).rejects.toThrow();
 
-      expect(await payments.findById(payment.id)).toMatchObject({ status: PaymentStatus.CREATED, version: 0 }); // rolled back
+      expect(await payments.findById(payment.id)).toMatchObject({ status: PaymentStatus.CREATED, version: 0 });
       expect(await outboxRows(impossible.id)).toHaveLength(0);
     });
 
@@ -347,7 +346,7 @@ describe('payment persistence (real PostgreSQL)', () => {
     });
 
     it('keeps an unfinished event unprocessed, so the provider\'s retry gets handled', async () => {
-      await webhookEvents.recordIfNew(event('evt_unfinished')); // handler crashed before markProcessed
+      await webhookEvents.recordIfNew(event('evt_unfinished'));
       expect(await webhookEvents.recordIfNew(event('evt_unfinished'))).toEqual({ alreadyProcessed: false });
     });
 

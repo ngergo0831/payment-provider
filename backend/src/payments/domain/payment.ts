@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { Money } from './money';
 import { canTransition, isFinal, PaymentStatus } from './payment-status';
 
-/** Thrown when a Payment would be put into a state its rules forbid. A programming error, never user input. */
 export class PaymentInvariantError extends Error {
   constructor(message: string) {
     super(message);
@@ -11,15 +10,12 @@ export class PaymentInvariantError extends Error {
 }
 
 export enum TransitionOutcome {
-  /** The status (or the failure reason) changed. */
   APPLIED = 'APPLIED',
-  /** Already in that state: a duplicate or replayed report. Nothing to do. */
   UNCHANGED = 'UNCHANGED',
   /** An illegal move, i.e. stale or out-of-order information. The payment was left untouched. */
   REJECTED = 'REJECTED',
 }
 
-/** Everything a Payment holds, as plain data. This is what the persistence mapper reads and writes. */
 export interface PaymentSnapshot {
   id: string;
   companyId: string;
@@ -37,22 +33,13 @@ export interface PaymentSnapshot {
 
 export interface StartPaymentInput {
   companyId: string;
-  /** Which provider handles it, e.g. "stripe" or "mock". */
   provider: string;
   amount: Money;
 }
 
-/**
- * One attempt to collect one amount from one company.
- *
- * A PURE domain class: no framework, no ORM, no clock or randomness except through its arguments.
- * The status can only change through `applyStatus`, which enforces the state machine, so duplicate,
- * delayed or out-of-order provider information can never corrupt it.
- */
 export class Payment {
   private constructor(private state: PaymentSnapshot) {}
 
-  /** A brand-new payment: CREATED, not yet known to the provider. */
   static start(input: StartPaymentInput, now: Date = new Date()): Payment {
     if (!input.amount.isPositive()) {
       throw new PaymentInvariantError(`A payment must be for a positive amount, got ${input.amount.toString()}`);
@@ -72,7 +59,6 @@ export class Payment {
     });
   }
 
-  /** Rebuilds a Payment from stored data (used by the persistence mapper). Does not re-run business rules. */
   static restore(snapshot: PaymentSnapshot): Payment {
     return new Payment({ ...snapshot });
   }
@@ -97,7 +83,6 @@ export class Payment {
     return this.state.status === PaymentStatus.SUCCEEDED;
   }
 
-  /** Final = nothing can happen to it any more. A payment that is not final is "open": the customer can still (re)try paying. */
   isFinal(): boolean {
     return isFinal(this.state.status);
   }
@@ -142,7 +127,6 @@ export class Payment {
     return TransitionOutcome.APPLIED;
   }
 
-  /** Records that we just compared this payment with the provider (reconciliation bookkeeping). */
   markSynced(now: Date = new Date()): void {
     this.state = { ...this.state, lastSyncedAt: now };
   }

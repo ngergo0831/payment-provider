@@ -18,7 +18,6 @@ const RULES: { name: string; applies: (path: string) => boolean }[] = [
   { name: 'payments domain must stay pure', applies: (p) => p.startsWith(`payments${sep}`) && p.includes(`${sep}domain${sep}`) },
 ];
 
-/** Returns the lines of `source` that import a forbidden library. Exported for its own test below. */
 export function findForbiddenImports(source: string): string[] {
   return source.split('\n').filter((line) => FORBIDDEN_IMPORT.test(line));
 }

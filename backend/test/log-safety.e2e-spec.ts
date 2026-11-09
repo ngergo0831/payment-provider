@@ -29,10 +29,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
   const asText = (args: unknown[]) =>
     args.map((arg) => (typeof arg === 'string' ? arg : arg instanceof Error ? arg.stack : JSON.stringify(arg))).join(' ');
 
-  /**
-   * Receives every record the APPLICATION logs, exactly as it would be shipped: after the real AppLogger has filtered
-   * and redacted it. Only the destination is replaced, so this checks the real logging path, redaction included.
-   */
   const applicationLogs: string[] = [];
   const recorder = new (class extends LogSink {
     write(record: LogRecord): void {
@@ -47,7 +43,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
     await t.close();
   });
 
-  /** Everything the application logged, plus whatever libraries (TypeORM) print to the console, while `scenario` runs. */
   async function captureLogs(scenario: () => Promise<void>): Promise<string> {
     captured = [];
     applicationLogs.length = 0;
@@ -73,7 +68,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
     let clientSecret = '';
 
     const logs = await captureLogs(async () => {
-      // 1. Registration with personal data
       const registered = await t.http
         .post('/auth/register')
         .send({ email: EMAIL, fullName: FULL_NAME, company: { name: COMPANY_NAME, country: 'HU', taxId: TAX_ID } })
@@ -81,12 +75,10 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       token = registered.body.accessToken;
       const auth = { Authorization: `Bearer ${token}` };
 
-      // 2. The database itself rejecting a duplicate (bypassing the friendly pre-check, as a lost race would)
       const company = Company.register({ name: COMPANY_NAME, country: 'HU', taxId: TAX_ID, billingEmail: EMAIL });
       const admin = User.createAdmin({ email: EMAIL, fullName: FULL_NAME, companyId: company.id });
       await expect(t.app.get(AccountRepository).createCompanyWithAdmin(company, admin)).rejects.toThrow();
 
-      // 3. Validation failure echoing nothing back, a bad token, an unknown route
       await t.http.post('/auth/register').send({ email: 'not-an-email', fullName: FULL_NAME, company: { name: COMPANY_NAME, country: 'ZZ' } }).expect(422);
       await t.http.get('/onboarding/status').set('Authorization', `Bearer ${token}tampered`).expect(401);
       await t.http.get('/nope').expect(404);
@@ -95,7 +87,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       // Personal data in a query string: the access log and the error log record the path, never the query.
       await t.http.get('/onboarding/status?email=QUERYLEAK').set(auth).expect(200);
 
-      // 4. Payment, with a client secret in play
       const started = await t.http.post('/payments').set(auth).expect(200);
       clientSecret = started.body.clientSecret;
       expect(clientSecret).toBeTruthy();
@@ -109,7 +100,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       failing.mockRestore();
       expect(crashed.body.code).toBe('INTERNAL_ERROR');
 
-      // 5. Webhooks: a forged one, then a real one; provider outage; success and delivery
       await t.http.post('/webhooks/payments').set('Content-Type', 'application/json').set('x-mock-signature', 'forged').send('{"id":"evt_x"}').expect(400);
       provider.setOutage(true);
       await t.http.post('/payments').set(auth).expect(503);
@@ -130,15 +120,13 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       });
     });
 
-    expect(logs.length).toBeGreaterThan(0); // the capture works: otherwise "nothing leaked" proves nothing
-    expect(logs).toContain('POST /auth/register -> 422'); // ...and it really saw the application's own failure logging
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs).toContain('POST /auth/register -> 422');
 
-    // The debugging trail of a payment: if these lines were missing, the safety checks below would prove nothing about them.
-    expect(logs).toMatch(/POST \/payments -> 200 \d+ms company=[0-9a-f-]{36}/); // access log, with the company
-    expect(logs).toMatch(/Payment [0-9a-f-]{36}: \w+ -> SUCCEEDED \[mock /); // the state change, and its provider reference
+    expect(logs).toMatch(/POST \/payments -> 200 \d+ms company=[0-9a-f-]{36}/);
+    expect(logs).toMatch(/Payment [0-9a-f-]{36}: \w+ -> SUCCEEDED \[mock /);
     expect(logs).toMatch(/Company [0-9a-f-]{36} activated/);
 
-    // Personal data
     expect(logs).not.toContain('BODYLEAK');
     expect(logs).not.toContain('QUERYLEAK');
     expect(logs).not.toContain(EMAIL);
@@ -146,9 +134,8 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
     expect(logs).not.toContain(FULL_NAME);
     expect(logs).not.toContain(COMPANY_NAME);
     expect(logs).not.toContain(TAX_ID);
-    // Credentials and secrets
     expect(logs).not.toContain(token);
-    expect(logs).not.toContain(token.split('.')[1]); // the token's payload part on its own
+    expect(logs).not.toContain(token.split('.')[1]);
     expect(logs).not.toContain(TEST_JWT_SECRET);
     expect(logs).not.toContain(clientSecret);
     expect(logs).not.toMatch(/_secret/);

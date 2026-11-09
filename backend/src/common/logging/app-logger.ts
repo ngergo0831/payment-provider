@@ -4,7 +4,6 @@ import type { AppConfig } from '../../config/configuration';
 import { LogSink } from './log-sink';
 import { redactSecrets } from './redact';
 
-/** LOG_LEVEL: the least severe level still written. Each includes everything more severe. */
 export enum LogLevelName {
   Error = 'error',
   Warn = 'warn',
@@ -14,14 +13,6 @@ export enum LogLevelName {
 
 const SEVERITY: LogLevel[] = ['fatal', 'error', 'warn', 'log', 'debug'];
 
-/**
- * The application's logger. main.ts installs it with `app.useLogger(...)`, so every `new Logger('Context')` call in the
- * codebase, and Nest's own messages, come through here. That makes this the one place that:
- *  - drops what is below the configured level (LOG_LEVEL)
- *  - removes secrets from every message and stack trace, whoever wrote them (a library quoting a key in an error,
- *    a careless line in a future feature), so no caller has to remember to
- *  - turns the call into a structured record and hands it to the LogSink
- */
 @Injectable()
 export class AppLogger implements LoggerService {
   private readonly enabled: ReadonlySet<LogLevel>;

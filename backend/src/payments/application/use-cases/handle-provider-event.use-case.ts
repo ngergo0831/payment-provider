@@ -6,9 +6,7 @@ import { PaymentRepository, WebhookEventRepository } from '../ports/repositories
 
 export enum EventHandlingResult {
   PROCESSED = 'PROCESSED',
-  /** This exact event was already handled completely: nothing to do. */
   DUPLICATE = 'DUPLICATE',
-  /** Not about a payment of ours (e.g. another product sharing the same provider account). */
   UNKNOWN_PAYMENT = 'UNKNOWN_PAYMENT',
 }
 
@@ -41,7 +39,6 @@ export class HandleProviderEventUseCase {
 
     const payment = await this.locate(event);
     if (!payment) {
-      // Acknowledge, so the provider stops retrying something that can never match.
       this.logger.warn(`Event ${event.id} is about an unknown payment (${event.providerRef}); ignoring`);
       await this.inbox.markProcessed(event.id);
       return EventHandlingResult.UNKNOWN_PAYMENT;

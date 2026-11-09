@@ -3,12 +3,6 @@ import { canTransition, isFinal, OPEN_STATUSES, PaymentStatus } from './payment-
 const { CREATED, REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED } = PaymentStatus;
 const ALL = [CREATED, REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED];
 
-/**
- * The state machine written out as a full matrix, independently of the implementation's table.
- * Reading this is the quickest way to learn the rules. Changing a rule means changing a line here, on purpose.
- *
- *   rows = from, columns = to, X = allowed
- */
 const MATRIX: Record<PaymentStatus, PaymentStatus[]> = {
   //                 CREATED  REQ_ACTION  PROCESSING  SUCCEEDED  FAILED  CANCELED
   [CREATED]:         [        REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED],
@@ -47,7 +41,7 @@ describe('the rules that matter most', () => {
   it('FAILED is NOT final: a declined card can be retried on the same payment (ADR 0003)', () => {
     expect(isFinal(FAILED)).toBe(false);
     expect(canTransition(FAILED, PROCESSING)).toBe(true);
-    expect(canTransition(FAILED, SUCCEEDED)).toBe(true); // retry succeeded, or a late success report
+    expect(canTransition(FAILED, SUCCEEDED)).toBe(true);
   });
 
   it('a success can never be undone by a late failure report', () => {

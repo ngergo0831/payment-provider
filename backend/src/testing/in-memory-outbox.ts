@@ -7,7 +7,6 @@ interface Row {
   lastError: string | null;
 }
 
-/** In-memory outbox for unit tests. Excluded from the production build. */
 export class InMemoryOutbox extends OutboxRepository {
   private readonly rows = new Map<string, Row>();
 

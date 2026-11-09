@@ -44,14 +44,11 @@ export class TypeOrmAccountRepository extends AccountRepository {
 
   async createCompanyWithAdmin(company: Company, admin: User): Promise<void> {
     try {
-      // One transaction: if the user insert fails, the company insert is rolled back.
       await this.dataSource.transaction(async (manager) => {
         await manager.insert(Company, company);
         await manager.insert(User, admin);
       });
     } catch (error) {
-      // The unique index is the real guard against two simultaneous registrations; translate its failure
-      // into a domain exception so nothing above this layer ever sees a driver error code.
       if (isUniqueViolation(error, UNIQUE_USER_EMAIL)) throw new EmailAlreadyRegisteredException();
       throw error;
     }

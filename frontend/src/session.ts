@@ -1,4 +1,3 @@
-/** What we remember about the signed-in admin between page reloads. The token is the only secret in it. */
 export interface Session {
   token: string;
   companyName: string;
@@ -13,7 +12,6 @@ export function loadSession(): Session | null {
   try {
     const raw = sessionStorage.getItem(KEY);
     const stored: Partial<Session> | null = raw ? JSON.parse(raw) : null;
-    // Storage can hold anything (an old version of the app, a hand-edited value): accept only a complete session.
     return typeof stored?.token === 'string' && typeof stored.companyName === 'string' && typeof stored.email === 'string'
       ? { token: stored.token, companyName: stored.companyName, email: stored.email }
       : null;

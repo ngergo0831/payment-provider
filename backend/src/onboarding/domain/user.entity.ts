@@ -13,10 +13,6 @@ export interface NewAdminUser {
   companyId: string;
 }
 
-/**
- * A person who belongs to exactly one company. There is no password: sign-in is deliberately out of scope
- * for this slice (registration hands back a token directly).
- */
 @Entity('users')
 @Unique('uq_users_email', ['email'])
 @Index('ix_users_company_id', ['companyId'])
@@ -40,8 +36,6 @@ export class User {
   @Column({ name: 'company_id', type: 'uuid' })
   companyId: string;
 
-  // The foreign key: a user cannot reference a company that does not exist, and a company that still has
-  // users cannot be deleted. Loaded only on request; we normally work with `companyId`.
   @ManyToOne(() => Company, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'company_id', foreignKeyConstraintName: 'fk_users_company' })
   company?: Company;

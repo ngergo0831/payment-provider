@@ -3,7 +3,6 @@ import { ActivateCompanyUseCase } from '../../onboarding/application/activate-co
 import { CompanyRepository } from '../../onboarding/application/ports';
 import { BillingProfile, CompanyActivation, CompanyGateway } from '../application/ports/collaborators';
 
-/** Adapts onboarding's repository to the narrow view payments needs. */
 @Injectable()
 export class OnboardingCompanyGateway extends CompanyGateway {
   constructor(private readonly companies: CompanyRepository) {
@@ -16,7 +15,6 @@ export class OnboardingCompanyGateway extends CompanyGateway {
   }
 }
 
-/** Lets payments ask onboarding to activate a company, without importing onboarding's internals. */
 @Injectable()
 export class OnboardingCompanyActivation extends CompanyActivation {
   constructor(private readonly activateCompany: ActivateCompanyUseCase) {

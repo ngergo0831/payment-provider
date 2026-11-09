@@ -2,15 +2,15 @@ import { InvalidMoneyError, Money } from './money';
 
 describe('why Money exists: floating point loses cents', () => {
   it('the naive conversion is WRONG for ordinary prices (this is the bug Money prevents)', () => {
-    expect(19.99 * 100).not.toBe(1999); // 1998.9999999999998
+    expect(19.99 * 100).not.toBe(1999);
     expect(0.1 + 0.2).not.toBe(0.3);
-    expect(Math.round(1.005 * 100)).toBe(100); // "1.005" rounds to 1.00, and a cent has silently vanished
+    expect(Math.round(1.005 * 100)).toBe(100);
   });
 
   it('Money gets it exactly right, with no floating point involved', () => {
     expect(Money.fromDecimalString('19.99', 'USD').amountMinor).toBe(1999);
-    expect(Money.fromDecimalString('0.29', 'USD').amountMinor).toBe(29); // 0.29 * 100 is 28.999999999999996 in floats
-    expect(Money.fromDecimalString('1.10', 'USD').amountMinor).toBe(110); // 1.1 * 100 is 110.00000000000001
+    expect(Money.fromDecimalString('0.29', 'USD').amountMinor).toBe(29);
+    expect(Money.fromDecimalString('1.10', 'USD').amountMinor).toBe(110);
   });
 });
 
@@ -22,7 +22,7 @@ describe('large amounts keep every digit', () => {
     ['78457793824192.07', 7845779382419207],
     ['83349160059196.18', 8334916005919618],
   ])('%s USD is exactly %d minor units (a float-based parser gets this wrong)', (text, expectedMinor) => {
-    expect(Math.round(parseFloat(text) * 100)).not.toBe(expectedMinor); // proves the trap is real
+    expect(Math.round(parseFloat(text) * 100)).not.toBe(expectedMinor);
     expect(Money.fromDecimalString(text, 'USD').amountMinor).toBe(expectedMinor);
   });
 });
@@ -123,7 +123,7 @@ describe('value semantics', () => {
   it('is equal by value, and different currency or amount means different money', () => {
     expect(Money.of(4900, 'USD').equals(Money.of(4900, 'usd'))).toBe(true);
     expect(Money.of(4900, 'USD').equals(Money.of(4901, 'USD'))).toBe(false);
-    expect(Money.of(4900, 'USD').equals(Money.of(4900, 'EUR'))).toBe(false); // 49 dollars is not 49 euros
+    expect(Money.of(4900, 'USD').equals(Money.of(4900, 'EUR'))).toBe(false);
   });
 
   it('is immutable', () => {

@@ -2,11 +2,9 @@ import type { InputHTMLAttributes } from 'react';
 
 interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  /** The server's message for this field, shown right under the input. */
   error?: string;
 }
 
-/** A labelled input with its inline error, wired up for screen readers (aria-invalid + aria-describedby). */
 export function Field({ label, error, id, ...input }: FieldProps) {
   const fieldId = id ?? input.name ?? label;
   const errorId = `${fieldId}-error`;

@@ -1,10 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/**
- * Migration 1: companies and users.
- * Written by hand and checked against the entities by the "no schema drift" e2e test.
- * Constraints are named explicitly so errors and code can refer to them (e.g. uq_users_email).
- */
 export class CreateCompaniesAndUsers1794237392899 implements MigrationInterface {
   name = 'CreateCompaniesAndUsers1794237392899';
 

@@ -26,7 +26,6 @@ const EXPONENT_BY_CURRENCY = {
 
 export type CurrencyCode = keyof typeof EXPONENT_BY_CURRENCY;
 
-/** Thrown when an amount or currency is invalid. A programming/configuration error, never a user input error. */
 export class InvalidMoneyError extends Error {
   constructor(message: string) {
     super(message);
@@ -34,16 +33,6 @@ export class InvalidMoneyError extends Error {
   }
 }
 
-/**
- * An amount of money: a whole number of the currency's SMALLEST unit (cents, yen) plus the currency.
- *
- *  - Integers only. Floating point cannot represent 0.1 exactly, and the errors are real money.
- *  - Immutable: no method changes an existing Money.
- *  - Compared by value (`equals`), never by identity.
- *  - Cannot exist in an invalid state: the only ways to build one validate everything.
- *
- * This is also the provider contract: Stripe's `amount` is exactly `amountMinor`.
- */
 export class Money {
   private constructor(
     readonly amountMinor: number,
@@ -52,7 +41,6 @@ export class Money {
     Object.freeze(this);
   }
 
-  /** From the smallest unit: `Money.of(4900, 'USD')` is 49.00 USD, `Money.of(4900, 'JPY')` is 4900 yen. */
   static of(amountMinor: number, currency: string): Money {
     const code = Money.parseCurrency(currency);
     if (!Number.isSafeInteger(amountMinor)) {
@@ -64,10 +52,6 @@ export class Money {
     return new Money(amountMinor, code);
   }
 
-  /**
-   * From a decimal string such as "49.00" or "19.99", parsed digit by digit with NO floating point.
-   * Refuses to round: "19.999 USD" is an error, not a silent 20.00.
-   */
   static fromDecimalString(amount: string, currency: string): Money {
     const code = Money.parseCurrency(currency);
     const exponent = EXPONENT_BY_CURRENCY[code];
@@ -98,7 +82,6 @@ export class Money {
     return code as CurrencyCode;
   }
 
-  /** Number of decimal places of this currency (USD 2, JPY 0). */
   get exponent(): number {
     return EXPONENT_BY_CURRENCY[this.currency];
   }
@@ -111,7 +94,6 @@ export class Money {
     return this.amountMinor === other.amountMinor && this.currency === other.currency;
   }
 
-  /** "49.00" for USD, "4900" for JPY. Exact, built from the integer with string operations only. */
   toDecimalString(): string {
     if (this.exponent === 0) return String(this.amountMinor);
     const digits = String(this.amountMinor).padStart(this.exponent + 1, '0');
@@ -122,7 +104,6 @@ export class Money {
     return `${this.toDecimalString()} ${this.currency}`;
   }
 
-  /** The shape used in API responses and persistence: minor units and currency, never a decimal. */
   toJSON(): { amountMinor: number; currency: CurrencyCode } {
     return { amountMinor: this.amountMinor, currency: this.currency };
   }

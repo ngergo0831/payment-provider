@@ -8,10 +8,8 @@ import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PaymentsModule } from './payments/payments.module';
 
-/** Root module. Feature modules (auth, onboarding, payments) are imported here as they are built. */
 @Module({
   imports: [
-    // isGlobal: any module can inject ConfigService without importing ConfigModule again.
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     LoggingModule,
     DatabaseModule,

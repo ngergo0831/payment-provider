@@ -4,7 +4,6 @@ import { EventEmitter } from 'node:events';
 import type { Request, Response } from 'express';
 import { logRequests } from './access-log';
 
-/** Runs the middleware for a fake request and returns what it logged, per level. */
 function run(request: { method: string; path: string; user?: { companyId: string } }, statusCode: number) {
   const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
   const debug = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
@@ -66,7 +65,6 @@ describe('logRequests', () => {
   });
 
   it('logs the path only: a query string can carry personal data', () => {
-    // Express splits the URL: `path` has no query string, which is why the middleware uses it and not `url`.
     const { log } = run({ method: 'GET', path: '/payments/p1' }, 500);
 
     expect(log[0]).not.toContain('?');

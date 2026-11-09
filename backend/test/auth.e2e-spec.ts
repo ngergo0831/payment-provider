@@ -9,7 +9,6 @@ const registration = (name = 'Acme Ltd') => ({
   company: { name, country: 'HU' },
 });
 
-/** Mints tokens exactly like the app does, so tests can craft VALID-looking ones with one thing wrong. */
 const signer = new JwtService({ secret: TEST_JWT_SECRET });
 const claims = (companyId: string) => ({ companyId, role: 'ADMIN' });
 const base64url = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');

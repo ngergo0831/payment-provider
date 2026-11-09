@@ -4,7 +4,6 @@ import { AppConfig } from '../../config/configuration';
 import { PlanPricing } from '../application/ports/collaborators';
 import { Money } from '../domain/money';
 
-/** The plan price from configuration, already validated at startup. */
 @Injectable()
 export class ConfigPlanPricing extends PlanPricing {
   readonly price: Money;

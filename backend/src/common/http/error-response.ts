@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ErrorCode } from '../errors/error-codes';
 
-/** One invalid field and everything wrong with it (same shape as `FieldError` in the domain layer). */
 export class FieldErrorDto {
   @ApiProperty({ example: 'company.name', description: 'Path to the field; nested fields use dots' })
   field: string;
@@ -10,7 +9,6 @@ export class FieldErrorDto {
   messages: string[];
 }
 
-/** The ONE shape of every error response in the API, so clients write a single error handler. */
 export class ErrorResponse {
   @ApiProperty({ example: 422, description: 'HTTP status, repeated in the body for clients/logs that lose the response line' })
   statusCode: number;

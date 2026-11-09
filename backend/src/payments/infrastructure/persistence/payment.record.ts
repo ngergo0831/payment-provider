@@ -3,13 +3,8 @@ import { OPEN_STATUSES, PaymentStatus } from '../../domain/payment-status';
 
 const quoted = (statuses: readonly PaymentStatus[]) => statuses.map((status) => `'${status}'`).join(', ');
 
-/**
- * Persistence-only shape of a payment: a table row, with ORM decorators.
- * The domain `Payment` knows nothing about this class (ADR 0001, option B); the mapper converts between them.
- */
 @Entity('payments')
 @Index('uq_payments_provider_ref', ['providerRef'], { unique: true })
-// The double-charge guard. Built from the domain's own OPEN_STATUSES so "open" is defined in ONE place.
 @Index('uq_payments_one_open_per_company', ['companyId'], {
   unique: true,
   where: `"status" IN (${quoted(OPEN_STATUSES)})`,
@@ -49,21 +44,18 @@ export class PaymentRecord {
   @Column({ name: 'failure_code', type: 'varchar', length: 100, nullable: true })
   failureCode: string | null;
 
-  /** Revision counter for optimistic locking: every successful update adds 1. */
   @Column({ type: 'integer', default: 0 })
   version: number;
 
   @Column({ name: 'last_synced_at', type: 'timestamptz', nullable: true })
   lastSyncedAt: Date | null;
 
-  // Set by the domain (not by the database), so the domain object and the row always agree.
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @Column({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  // Foreign key to companies. Referenced BY NAME so payments' persistence code does not import onboarding's entity.
   @ManyToOne('Company', { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'company_id', foreignKeyConstraintName: 'fk_payments_company' })
   company?: object;

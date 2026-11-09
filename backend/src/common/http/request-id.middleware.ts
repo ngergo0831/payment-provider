@@ -5,7 +5,6 @@ export const REQUEST_ID_HEADER = 'x-request-id';
 
 export type RequestWithId = Request & { id: string };
 
-// Only characters that are harmless in logs and headers, and a sane length.
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{1,128}$/;
 
 /**

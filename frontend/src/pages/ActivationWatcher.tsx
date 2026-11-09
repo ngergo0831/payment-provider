@@ -7,15 +7,12 @@ interface Props {
   session: Session;
   paymentId?: string;
   onActive: () => void;
-  /** The payment failed or was canceled after submission: back to the payment step. */
   onPaymentProblem: () => void;
   onSessionExpired: () => void;
-  /** For tests: poll faster than a human would wait. */
   intervalMs?: number;
   slowAfterMs?: number;
 }
 
-/** "Payment received, activating…": waits for the backend to finish the asynchronous part and says what is going on. */
 export function ActivationWatcher({ session, paymentId, onActive, onPaymentProblem, onSessionExpired, intervalMs, slowAfterMs }: Props) {
   const { outcome, offline, slow } = useActivationWatcher({ token: session.token, paymentId, intervalMs, slowAfterMs });
   const [checking, setChecking] = useState(false);
@@ -38,7 +35,7 @@ export function ActivationWatcher({ session, paymentId, onActive, onPaymentProbl
       const { payment } = await api.startPayment(session.token);
       if (payment.status !== 'PROCESSING' && payment.status !== 'SUCCEEDED') onPaymentProblem();
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'COMPANY_ALREADY_ACTIVE') return; // activated meanwhile: the next poll shows it
+      if (error instanceof ApiError && error.code === 'COMPANY_ALREADY_ACTIVE') return;
       if (error instanceof ApiError && error.status === 401) return onSessionExpired();
       setCheckError(error instanceof ApiError ? error.message : 'Unexpected error');
     } finally {

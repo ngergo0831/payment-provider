@@ -4,7 +4,6 @@ import { LogFormat } from '../common/logging/console-log-sink';
 import { LogLevelName } from '../common/logging/app-logger';
 import { InvalidMoneyError, Money } from '../payments/domain/money';
 
-/** Every example secret in this repository starts with this, so production can refuse them. */
 const DEV_SECRET_PREFIX = 'dev-only';
 
 /**
@@ -13,7 +12,6 @@ const DEV_SECRET_PREFIX = 'dev-only';
  */
 const ToNumber = () => Transform(({ value }) => (value === '' ? NaN : Number(value)));
 
-/** Which payment provider is used. Chosen once at startup. */
 export enum PaymentProviderName {
   Mock = 'mock',
   Stripe = 'stripe',
@@ -25,19 +23,13 @@ export enum Environment {
   Production = 'production',
 }
 
-/**
- * Every environment variable the app understands, with its type, rules and default.
- * This class is the single source of truth: add a variable here when a task needs one.
- */
 export class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment = Environment.Development;
 
-  // How much to log: error < warn < log (default: what happened) < debug (also routine reads and provider call timings).
   @IsEnum(LogLevelName)
   LOG_LEVEL: LogLevelName = LogLevelName.Log;
 
-  // `text` for a terminal; `json` (one object per line) for log platforms such as CloudWatch, which query by field.
   @IsEnum(LogFormat)
   LOG_FORMAT: LogFormat = LogFormat.Text;
 
@@ -58,12 +50,9 @@ export class EnvironmentVariables {
   @MinLength(32)
   JWT_SECRET: string;
 
-  // How long a token stays valid: a number plus a unit (s, m, h, d), e.g. "30m" or "24h".
   @Matches(/^\d+[smhd]$/, { message: 'JWT_EXPIRES_IN must look like 30m, 24h or 7d' })
   JWT_EXPIRES_IN: string = '24h';
 
-  // The one plan this slice sells, in MINOR units (4900 = 49.00 USD, 4900 = 4900 JPY). Whether the amount and
-  // currency make sense TOGETHER is checked by Money in validateEnv, so a bad value stops the deploy.
   @ToNumber()
   @Min(1)
   @IsInt()
@@ -72,11 +61,9 @@ export class EnvironmentVariables {
   @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
   PLAN_CURRENCY: string = 'USD';
 
-  // 'mock' needs nothing and works out of the box. 'stripe' needs the three keys below.
   @IsEnum(PaymentProviderName)
   PAYMENT_PROVIDER: PaymentProviderName = PaymentProviderName.Mock;
 
-  // Stripe settings are required ONLY when Stripe is the provider. Messages name the variable, never its value.
   @ValidateIf((env: EnvironmentVariables) => env.PAYMENT_PROVIDER === PaymentProviderName.Stripe)
   @Matches(/^sk_(test|live)_\S+$/, { message: 'STRIPE_SECRET_KEY must be a Stripe secret key (sk_test_... or sk_live_...)' })
   STRIPE_SECRET_KEY?: string;
@@ -89,27 +76,20 @@ export class EnvironmentVariables {
   @Matches(/^whsec_\S+$/, { message: 'STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret (whsec_...)' })
   STRIPE_WEBHOOK_SECRET?: string;
 
-  // How often queued outbox messages are delivered. 0 turns the timer off (tests trigger delivery themselves).
   @ToNumber()
   @Min(0)
   @IsInt()
   OUTBOX_POLL_INTERVAL_MS: number = 1000;
 
-  // How often payments that went quiet are compared with the provider (the safety net for lost webhooks). 0 = off.
   @ToNumber()
   @Min(0)
   @IsInt()
   RECONCILE_INTERVAL_MS: number = 60000;
 }
 
-/**
- * Validates raw environment variables (normally `process.env`).
- * Reports ALL problems at once, so a misconfigured deploy is fixed in one go instead of one error per restart.
- */
 export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables {
   const env = plainToInstance(EnvironmentVariables, raw, { exposeDefaultValues: true });
   const fieldProblems = validateSync(env, { stopAtFirstError: true }).flatMap((error) => Object.values(error.constraints ?? {}));
-  // The rules that combine several variables only make sense once each variable is valid on its own.
   const problems = fieldProblems.length > 0 ? fieldProblems : combinationProblems(env);
 
   if (problems.length > 0) {
@@ -122,7 +102,6 @@ function combinationProblems(env: EnvironmentVariables): string[] {
   const problems: string[] = [];
   const isProduction = env.NODE_ENV === Environment.Production;
 
-  // The price must be a real amount in a currency we know how to charge (explicit list, no guessing).
   try {
     Money.of(env.PLAN_PRICE_MINOR, env.PLAN_CURRENCY);
   } catch (error) {

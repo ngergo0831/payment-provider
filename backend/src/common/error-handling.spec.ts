@@ -8,8 +8,6 @@ import { configureApp } from '../app.setup';
 import { DomainException, ErrorKind } from './errors/domain.exception';
 import { ErrorCode } from './errors/error-codes';
 
-// ---- test-only fixtures: a controller that triggers every kind of failure on demand ----
-
 class CompanyDto {
   @IsString()
   @Length(2, 50)
@@ -64,8 +62,6 @@ class FailureController {
     throw new Error('connection to db-prod-3 refused, password=hunter2');
   }
 }
-
-// ---- tests ----
 
 describe('global error handling', () => {
   let app: INestApplication;
@@ -163,7 +159,7 @@ describe('global error handling', () => {
 
       const [context, stack] = error.mock.calls[0] as [string, string];
       expect(context).toContain(res.body.requestId);
-      expect(stack).toContain('hunter2'); // present in the LOG only
+      expect(stack).toContain('hunter2');
     });
 
     it('logs expected failures as one warning line, without a stack trace', async () => {

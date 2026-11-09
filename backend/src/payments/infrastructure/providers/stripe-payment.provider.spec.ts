@@ -11,7 +11,6 @@ import { PaymentStatus } from '../../domain/payment-status';
 import { StripePaymentProvider } from './stripe-payment.provider';
 
 const WEBHOOK_SECRET = 'whsec_unit_test_secret';
-// A Stripe object used ONLY for its offline signing helper: no request is ever made with it.
 const signer = new Stripe('sk_test_not_a_real_key');
 
 const intent = (overrides: Record<string, unknown> = {}) => ({
@@ -26,7 +25,6 @@ const intent = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-/** A Stripe client whose API calls are scripted. Webhook verification stays REAL (Stripe's own code). */
 function setup() {
   const create = jest.fn<(params: unknown, options: unknown) => Promise<unknown>>();
   const retrieve = jest.fn<(id: string) => Promise<unknown>>();
@@ -85,8 +83,8 @@ describe('StripePaymentProvider', () => {
 
     it('returns the CURRENT state, not the stale snapshot an idempotent replay gives back', async () => {
       const { provider, create, retrieve } = setup();
-      create.mockResolvedValue(intent({ status: 'requires_payment_method' })); // what a replay of the first request says
-      retrieve.mockResolvedValue(intent({ status: 'succeeded' })); // what is actually true now
+      create.mockResolvedValue(intent({ status: 'requires_payment_method' }));
+      retrieve.mockResolvedValue(intent({ status: 'succeeded' }));
 
       const result = await provider.createPayment(request);
 

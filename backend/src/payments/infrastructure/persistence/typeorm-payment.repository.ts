@@ -52,7 +52,6 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     try {
       await this.records.insert(toRecord(payment));
     } catch (error) {
-      // The partial unique index is the real guard against two simultaneous "start payment" requests.
       if (isUniqueViolation(error, UNIQUE_ONE_OPEN_PER_COMPANY)) throw new OpenPaymentAlreadyExistsError();
       throw error;
     }
@@ -61,7 +60,6 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
   async save(payment: Payment, messages: OutboxMessage[] = []): Promise<Payment> {
     const record = toRecord(payment);
 
-    // One transaction: the payment change and its outbox messages are written together or not at all.
     await this.records.manager.transaction(async (manager) => {
       // Optimistic locking: the WHERE clause only matches while the stored version is still the one we loaded.
       // If someone else saved in between, zero rows match and nothing is overwritten.

@@ -1,6 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/** Migration 3: the outbox, a queue of messages written in the same transaction as the change that caused them. */
 export class CreateOutboxMessages1794240546520 implements MigrationInterface {
   name = 'CreateOutboxMessages1794240546520';
 
@@ -18,7 +17,6 @@ export class CreateOutboxMessages1794240546520 implements MigrationInterface {
         CONSTRAINT "pk_outbox_messages" PRIMARY KEY ("id")
       )`);
 
-    // The dispatcher only reads undelivered messages, so only those are indexed.
     await queryRunner.query(`CREATE INDEX "ix_outbox_pending" ON "outbox_messages" ("available_at") WHERE "processed_at" IS NULL`);
   }
 

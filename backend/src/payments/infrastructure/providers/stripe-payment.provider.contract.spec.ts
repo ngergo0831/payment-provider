@@ -13,7 +13,6 @@ import { StripePaymentProvider } from './stripe-payment.provider';
 const key = process.env.STRIPE_TEST_SECRET_KEY;
 const WEBHOOK_SECRET = 'whsec_contract_test_secret';
 
-/** Stripe's documented test payment methods: what the "customer" pays with. */
 const TEST_CARD: Partial<Record<RemoteOutcome, string>> = {
   succeed: 'pm_card_visa',
   decline: 'pm_card_chargeDeclined',
@@ -44,7 +43,6 @@ if (!key || !key.startsWith('sk_test_')) {
       }
     },
 
-    // Webhooks can be signed offline with Stripe's own helper, so these contract tests need no event delivery.
     signedWebhook: (providerRef, paymentId) => {
       const payload = JSON.stringify({
         id: 'evt_contract',

@@ -22,17 +22,12 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** Safe to retry automatically because every request that changes anything carries an idempotency key. */
 const MAX_NETWORK_RETRIES = 2;
 
-/**
- * The ONLY file that knows Stripe exists. Everything it returns or throws is provider-neutral, so the rest of the
- * system could not tell Stripe from the mock (the contract test suite is what proves that).
- */
 export class StripePaymentProvider extends PaymentProvider {
   readonly name = 'stripe';
   readonly webhookSignatureHeader = 'stripe-signature';
 
   private readonly logger = new Logger(StripePaymentProvider.name);
 
-  /** `client` can be replaced in tests, so the translation logic is verifiable without any network. */
   constructor(
     private readonly settings: StripeSettings,
     private readonly client: Stripe = new Stripe(settings.secretKey, {
@@ -92,7 +87,6 @@ export class StripePaymentProvider extends PaymentProvider {
     };
   }
 
-  /** Translates Stripe's failures into our two categories: "try again later" and "our request was wrong". */
   private async call<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
@@ -106,7 +100,6 @@ export class StripePaymentProvider extends PaymentProvider {
         throw new PaymentProviderUnavailableException();
       }
 
-      // Authentication, invalid request, idempotency conflict...: retrying will not help. Loud in the logs, generic to the client.
       this.logger.error(`Stripe rejected the request: ${(error as Error).message}`);
       throw new PaymentProviderFailureException();
     }

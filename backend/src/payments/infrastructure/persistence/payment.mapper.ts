@@ -3,10 +3,6 @@ import { Payment } from '../../domain/payment';
 import { PaymentStatus } from '../../domain/payment-status';
 import { PaymentRecord } from './payment.record';
 
-/**
- * Converts between the pure domain `Payment` and its table row. This translation layer is the price of
- * keeping the domain free of the ORM (ADR 0001, option B); it contains no logic beyond renaming and Money <-> numbers.
- */
 export function toRecord(payment: Payment): PaymentRecord {
   const snapshot = payment.toSnapshot();
   const record = new PaymentRecord();

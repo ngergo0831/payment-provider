@@ -76,11 +76,11 @@ describe('RegisterCompanyAdminUseCase', () => {
 
     it('also reports a duplicate that slips past the pre-check (the race), via the repository', async () => {
       const { store, useCase } = setup();
-      store.rejectNextCreateAsDuplicate = true; // pre-check says "free", the unique index says "taken"
+      store.rejectNextCreateAsDuplicate = true;
 
       await expect(useCase.execute(command())).rejects.toBeInstanceOf(EmailAlreadyRegisteredException);
 
-      expect(store.companies.size).toBe(0); // no orphan company
+      expect(store.companies.size).toBe(0);
     });
   });
 });

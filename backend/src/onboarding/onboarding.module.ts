@@ -15,20 +15,16 @@ import {
 import { OnboardingController } from './presentation/onboarding.controller';
 
 @Module({
-  // JwtAuthModule provides the guard for OnboardingController. It does not import onboarding, so there is no cycle.
   imports: [TypeOrmModule.forFeature([Company, User]), JwtAuthModule],
   controllers: [OnboardingController],
   providers: [
     RegisterCompanyAdminUseCase,
     GetOnboardingStatusUseCase,
     ActivateCompanyUseCase,
-    // The binding of port -> implementation. Swapping persistence means changing these three lines
-    // (and writing the adapters), nothing in the application layer.
     { provide: CompanyRepository, useClass: TypeOrmCompanyRepository },
     { provide: UserRepository, useClass: TypeOrmUserRepository },
     { provide: AccountRepository, useClass: TypeOrmAccountRepository },
   ],
-  // What other modules may use: registration (auth), and reading/activating a company (payments). Nothing more.
   exports: [RegisterCompanyAdminUseCase, ActivateCompanyUseCase, CompanyRepository],
 })
 export class OnboardingModule {}

@@ -8,10 +8,8 @@ import { UserRole } from '../../onboarding/domain/user.entity';
  */
 export const JWT_ALGORITHM = 'HS256';
 
-/** Tokens minted by someone else with the same secret (another service) are rejected by checking who issued them. */
 export const JWT_ISSUER = 'payment-service';
 
-/** The custom claims. The user id travels in the standard `sub` claim. */
 export interface JwtClaims {
   sub: string;
   companyId: string;

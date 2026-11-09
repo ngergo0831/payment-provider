@@ -7,10 +7,6 @@ import { UserRole } from '../../onboarding/domain/user.entity';
 import { AuthenticatedUser } from '../domain/authenticated-user';
 import { JWT_ALGORITHM, JWT_ISSUER, JwtClaims } from './jwt.constants';
 
-/**
- * Verifies the bearer token on incoming requests. passport-jwt has ALREADY checked signature, algorithm,
- * issuer and expiry by the time `validate` runs; this method only turns the claims into our own type.
- */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService<AppConfig, true>) {

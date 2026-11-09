@@ -27,7 +27,6 @@ export class PaymentDto {
 
   @ApiProperty({ type: String, format: 'date-time' }) createdAt: Date;
 
-  /** Built field by field: the domain object is never serialised directly, so nothing leaks by accident. */
   static from(payment: Payment): PaymentDto {
     return {
       id: payment.id,

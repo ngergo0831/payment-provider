@@ -1,21 +1,11 @@
 import { DomainException, ErrorKind, FieldError } from './domain.exception';
 import { ErrorCode } from './error-codes';
 
-/**
- * Every failure the application raises on purpose, in one place. Each one fixes its own kind (which the exception
- * filter maps to an HTTP status), its stable code, and a message that is safe to show to a client.
- */
-
-// ---- input ----
-
-/** The request broke the input rules. Carries which fields and why, so the UI can mark them. */
 export class ValidationFailedException extends DomainException {
   constructor(details: FieldError[]) {
     super(ErrorKind.VALIDATION, ErrorCode.VALIDATION_FAILED, 'Request validation failed', details);
   }
 }
-
-// ---- onboarding ----
 
 export class EmailAlreadyRegisteredException extends DomainException {
   constructor() {
@@ -29,8 +19,6 @@ export class CompanyNotFoundException extends DomainException {
   }
 }
 
-// ---- payments ----
-
 export class CompanyAlreadyActiveException extends DomainException {
   constructor() {
     super(ErrorKind.CONFLICT, ErrorCode.COMPANY_ALREADY_ACTIVE, 'This account is already active; no payment is required');
@@ -43,7 +31,6 @@ export class PaymentNotFoundException extends DomainException {
   }
 }
 
-/** The payment provider could not be reached or timed out. Nothing was charged; the client may retry shortly. */
 export class PaymentProviderUnavailableException extends DomainException {
   constructor() {
     super(
@@ -54,14 +41,12 @@ export class PaymentProviderUnavailableException extends DomainException {
   }
 }
 
-/** The payment provider rejected our request (configuration or contract problem). The client cannot fix this. */
 export class PaymentProviderFailureException extends DomainException {
   constructor() {
     super(ErrorKind.PROVIDER_FAILURE, ErrorCode.PAYMENT_PROVIDER_ERROR, 'The payment service could not process the request.');
   }
 }
 
-/** A webhook did not carry a valid signature, so it cannot be trusted. */
 export class InvalidWebhookSignatureException extends DomainException {
   constructor() {
     super(ErrorKind.BAD_REQUEST, ErrorCode.INVALID_WEBHOOK_SIGNATURE, 'Webhook signature verification failed');

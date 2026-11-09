@@ -17,11 +17,11 @@ describe('database connection and /health (real PostgreSQL)', () => {
   });
 
   it('answers 503 once the database connection is lost, and does not crash', async () => {
-    const lost = await createTestApp(); // its own app, so closing its connection disturbs nobody else
+    const lost = await createTestApp();
     try {
       await lost.http.get('/health').expect(200);
 
-      await lost.app.get(DataSource).destroy(); // simulate losing the database
+      await lost.app.get(DataSource).destroy();
 
       const res = await lost.http.get('/health').expect(503);
       expect(res.body).toEqual({ status: 'error', database: 'down' });

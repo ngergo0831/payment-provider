@@ -37,7 +37,7 @@ describe('Company', () => {
     const first = new Date('2026-11-09T12:00:00Z');
     company.activate(first);
 
-    company.activate(new Date('2026-11-10T08:00:00Z')); // e.g. a duplicate webhook a day later
+    company.activate(new Date('2026-11-10T08:00:00Z'));
 
     expect(company.activatedAt).toEqual(first);
   });

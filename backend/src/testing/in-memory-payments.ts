@@ -8,11 +8,6 @@ import {
 import { Money } from '../payments/domain/money';
 import { Payment, PaymentSnapshot } from '../payments/domain/payment';
 
-/**
- * In-memory implementations of the payment ports for unit tests: fast, deterministic, no database.
- * They honour the same contract as the real adapters (one open payment per company, optimistic locking, save returns
- * the new version). Excluded from the production build (tsconfig.build.json).
- */
 export class InMemoryPaymentRepository extends PaymentRepository {
   private readonly rows = new Map<string, PaymentSnapshot>();
 
@@ -57,7 +52,6 @@ export class InMemoryPaymentRepository extends PaymentRepository {
     this.rows.set(payment.id, payment.toSnapshot());
   }
 
-  /** Messages queued together with saves (the outbox), in order. */
   readonly outbox: OutboxMessage[] = [];
 
   async save(payment: Payment, messages: OutboxMessage[] = []): Promise<Payment> {

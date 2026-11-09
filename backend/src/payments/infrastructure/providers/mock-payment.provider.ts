@@ -13,10 +13,8 @@ import {
 import { Money } from '../../domain/money';
 import { isFinal, PaymentStatus } from '../../domain/payment-status';
 
-/** The mock's webhook "signature": a fixed value, since there is no real secret to sign with. */
 export const MOCK_WEBHOOK_SIGNATURE = 'mock-signature';
 
-/** What the "customer / bank" does to a payment, for demos and tests. */
 export enum MockOutcome {
   SUCCEED = 'succeed',
   DECLINE = 'decline',
@@ -41,13 +39,6 @@ const STATE_AFTER: Record<MockOutcome, { status: PaymentStatus; failureCode: str
   [MockOutcome.CANCEL]: { status: PaymentStatus.CANCELED, failureCode: null },
 };
 
-/**
- * An in-memory stand-in for Stripe that honours the SAME `PaymentProvider` contract.
- *
- * Why it exists: the whole system can be run, demoed and tested without a Stripe account, and it can
- * reproduce failure modes on demand (outage, decline, a payment that succeeds with no webhook).
- * State lives in this process and is lost on restart: for development and tests only.
- */
 export class MockPaymentProvider extends PaymentProvider {
   readonly name = 'mock';
   readonly webhookSignatureHeader = 'x-mock-signature';
@@ -59,7 +50,6 @@ export class MockPaymentProvider extends PaymentProvider {
   async createPayment(input: CreateProviderPaymentInput): Promise<ProviderPayment> {
     this.failIfOutage();
 
-    // Contract rule 1: idempotent on paymentId.
     const existingRef = this.refByPaymentId.get(input.paymentId);
     if (existingRef) return this.view(this.mustGet(existingRef));
 
@@ -80,10 +70,6 @@ export class MockPaymentProvider extends PaymentProvider {
     return this.view(this.mustGet(providerRef));
   }
 
-  /**
-   * Mock webhook format: a JSON body `{ id, type, providerRef, paymentId }` plus the fixed signature header.
-   * A signed body that names no payment is "not relevant" and yields null.
-   */
   parseWebhook(rawBody: Buffer, signature: string | undefined): ProviderEvent | null {
     if (signature !== MOCK_WEBHOOK_SIGNATURE) throw new InvalidWebhookSignatureException();
 
@@ -104,9 +90,6 @@ export class MockPaymentProvider extends PaymentProvider {
     };
   }
 
-  // ---------- controls for demos and tests (NOT part of the PaymentProvider contract) ----------
-
-  /** While on, every provider call fails as if the provider were down. */
   setOutage(enabled: boolean): void {
     this.outage = enabled;
   }
@@ -115,10 +98,6 @@ export class MockPaymentProvider extends PaymentProvider {
     return this.outage;
   }
 
-  /**
-   * Moves the "remote" payment to a new state, as the customer or bank would, and returns the notification
-   * the provider would send about it. A payment that is already final ignores further outcomes.
-   */
   simulate(providerRef: string, outcome: MockOutcome): ProviderEvent {
     const intent = this.mustGet(providerRef);
     if (isFinal(intent.status)) return this.eventFor(intent, 'mock.payment.noop');
@@ -127,7 +106,6 @@ export class MockPaymentProvider extends PaymentProvider {
     return this.eventFor(intent, `mock.payment.${outcome}`);
   }
 
-  /** A correctly "signed" webhook delivery for a payment, ready to POST. */
   signedWebhook(providerRef: string, paymentId: string | null): { rawBody: Buffer; signature: string } {
     const body = { id: `evt_mock_${randomUUID()}`, type: 'mock.payment.updated', providerRef, paymentId };
     return { rawBody: Buffer.from(JSON.stringify(body)), signature: MOCK_WEBHOOK_SIGNATURE };

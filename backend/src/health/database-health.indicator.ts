@@ -12,7 +12,6 @@ function describe(error: unknown): string {
   return err.message || err.code || err.name || 'unknown error';
 }
 
-/** Answers one question: "can we run a query right now?" */
 @Injectable()
 export class DatabaseHealthIndicator {
   private readonly logger = new Logger(DatabaseHealthIndicator.name);

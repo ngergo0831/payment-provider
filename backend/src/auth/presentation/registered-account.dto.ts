@@ -18,7 +18,6 @@ class RegisteredCompanyDto {
   status: CompanyStatus;
 }
 
-/** What the API returns, built field by field: entities are never serialised directly, so no column leaks by accident. */
 export class RegisteredAccountDto {
   @ApiProperty({ type: RegisteredUserDto }) user: RegisteredUserDto;
   @ApiProperty({ type: RegisteredCompanyDto }) company: RegisteredCompanyDto;

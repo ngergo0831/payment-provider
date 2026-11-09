@@ -6,7 +6,6 @@ import { MAX_ATTEMPTS, OutboxDispatcher, OutboxHandler, retryDelayMs } from './o
 const T0 = new Date('2026-11-09T12:00:00Z');
 const after = (ms: number) => new Date(T0.getTime() + ms);
 
-/** A handler that records what it received, and can be told to fail. */
 function handlerFor(type: string) {
   const received: unknown[] = [];
   const handler: OutboxHandler & { failWith?: Error } = {
@@ -86,10 +85,10 @@ describe('OutboxDispatcher', () => {
       await dispatcher.dispatchDue(T0);
 
       handler.failWith = undefined;
-      await dispatcher.dispatchDue(after(4_000)); // too early
+      await dispatcher.dispatchDue(after(4_000));
       expect(received).toEqual([]);
 
-      await dispatcher.dispatchDue(after(5_000)); // due
+      await dispatcher.dispatchDue(after(5_000));
       expect(received).toHaveLength(1);
       expect(outbox.row(id).deliveredAt).not.toBeNull();
     });
@@ -132,13 +131,13 @@ describe('OutboxDispatcher', () => {
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         await dispatcher.dispatchDue(now);
-        now = new Date(now.getTime() + 10 * 60_000); // always past the back-off
+        now = new Date(now.getTime() + 10 * 60_000);
       }
       const lastCall = await dispatcher.dispatchDue(now);
 
       expect(outbox.row(id).message.attempts).toBe(MAX_ATTEMPTS);
-      expect(lastCall).toEqual({ delivered: 0, failed: 0 }); // no longer picked up
-      expect(outbox.row(id)).toMatchObject({ deliveredAt: null, lastError: 'permanent problem' }); // still there, still explained
+      expect(lastCall).toEqual({ delivered: 0, failed: 0 });
+      expect(outbox.row(id)).toMatchObject({ deliveredAt: null, lastError: 'permanent problem' });
     });
 
     it('records a clear reason for a message type nobody handles (and keeps retrying, since a deploy may add the handler)', async () => {
@@ -168,10 +167,10 @@ describe('OutboxDispatcher', () => {
       outbox.add('thing.happened', { n: 1 });
       outbox.failNextMarkDelivered = true;
 
-      await dispatcher.dispatchDue(T0); // handler ran, marking failed: recorded as a failure
+      await dispatcher.dispatchDue(T0);
       await dispatcher.dispatchDue(after(5_000));
 
-      expect(received).toHaveLength(2); // the handler saw it twice. That is why handlers must be idempotent.
+      expect(received).toHaveLength(2);
     });
   });
 });

@@ -31,7 +31,6 @@ describe('reconciliation (real PostgreSQL)', () => {
       await q.close();
     });
 
-    /** Inserts a payment row with exact timestamps and returns its id. */
     const seed = async (columns: { status?: string; providerRef?: string | null; createdMinutesAgo: number; syncedMinutesAgo?: number }) => {
       const { companyId } = await registerCompany(q);
       const id: string = randomUUID();
@@ -93,8 +92,7 @@ describe('reconciliation (real PostgreSQL)', () => {
       const company = await registerCompany(t);
       const { auth } = company;
       const { body } = await t.http.post('/payments').set(auth).expect(200);
-      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED); // the webhook never arrives
-      // Make it look like it has been quiet for a while.
+      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
       await queryDatabase(t.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
 
       const report = await t.app.get(ReconcilePaymentsUseCase).execute();
@@ -132,7 +130,7 @@ describe('reconciliation (real PostgreSQL)', () => {
         const timedProvider = timed.app.get(PaymentProvider) as MockPaymentProvider;
         const company = await registerCompany(timed);
         const { body } = await timed.http.post('/payments').set(company.auth).expect(200);
-        timedProvider.simulate(body.payment.providerRef, MockOutcome.SUCCEED); // webhook lost
+        timedProvider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
         await queryDatabase(timed.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
 
         expect(await waitForActivation(timed, company)).toBe('ACTIVE');

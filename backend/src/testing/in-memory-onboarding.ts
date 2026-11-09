@@ -3,16 +3,10 @@ import { AccountRepository, CompanyRepository, UserRepository } from '../onboard
 import { Company } from '../onboarding/domain/company.entity';
 import { User } from '../onboarding/domain/user.entity';
 
-/**
- * Hand-written in-memory implementations of the onboarding ports, for unit tests: fast, deterministic,
- * no database. They honour the port contracts (atomic create, duplicate emails rejected).
- * Excluded from the production build (tsconfig.build.json).
- */
 export class InMemoryOnboarding {
   readonly companies = new Map<string, Company>();
   readonly users = new Map<string, User>();
 
-  /** Set to simulate losing a race: the pre-check passed, but the unique index rejects the insert. */
   rejectNextCreateAsDuplicate = false;
 
   readonly companyRepository: CompanyRepository = {
@@ -29,7 +23,7 @@ export class InMemoryOnboarding {
       const taken = [...this.users.values()].some((user) => user.email === admin.email);
       if (taken || this.rejectNextCreateAsDuplicate) {
         this.rejectNextCreateAsDuplicate = false;
-        throw new EmailAlreadyRegisteredException(); // and nothing is stored: atomic
+        throw new EmailAlreadyRegisteredException();
       }
       this.companies.set(company.id, company);
       this.users.set(admin.id, admin);

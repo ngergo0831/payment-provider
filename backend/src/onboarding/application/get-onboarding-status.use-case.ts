@@ -3,7 +3,6 @@ import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { Company } from '../domain/company.entity';
 import { CompanyRepository } from './ports';
 
-/** What the UI should show next. Derived from the company's state on the server, never remembered by the client. */
 export enum OnboardingStep {
   PAYMENT = 'PAYMENT',
   DONE = 'DONE',
