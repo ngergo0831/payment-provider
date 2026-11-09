@@ -60,25 +60,36 @@ export async function createTestApp(
     ...env,
   });
 
-  // Imported only now: ConfigModule reads process.env the moment AppModule is first evaluated.
-  const { AppModule } = await import('../../src/app.module');
-  const { configureApp } = await import('../../src/app.setup');
+  // FORCE disconnects any straggling connection, so cleanup can never fail on a busy database.
+  const dropDatabase = () => withAdminClient((client) => client.query(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`));
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication({ rawBody: true, logger: ['error'] });
-  configureApp(app);
-  // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
-  beforeInit?.(app);
-  await app.init();
+  let app: INestApplication | undefined;
+  try {
+    // Imported only now: ConfigModule reads process.env the moment AppModule is first evaluated.
+    const { AppModule } = await import('../../src/app.module');
+    const { configureApp } = await import('../../src/app.setup');
 
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication({ rawBody: true, logger: ['error'] });
+    configureApp(app);
+    // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
+    beforeInit?.(app);
+    await app.init();
+  } catch (error) {
+    // The app failed to boot (e.g. invalid configuration, which some tests check on purpose): do not leak the database.
+    await app?.close().catch(() => undefined);
+    await dropDatabase();
+    throw error;
+  }
+
+  const booted = app;
   return {
-    app,
-    http: request(app.getHttpServer()),
+    app: booted,
+    http: request(booted.getHttpServer()),
     databaseUrl: databaseUrl.toString(),
     close: async () => {
-      await app.close();
-      // FORCE disconnects any straggling connection, so cleanup can never fail on a busy database.
-      await withAdminClient((client) => client.query(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`));
+      await booted.close();
+      await dropDatabase();
     },
   };
 }

@@ -195,15 +195,9 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
     });
   });
 
-  describe('the simulator is hidden when it must not exist', () => {
-    it('answers 404 in production, even with the mock provider', async () => {
-      const prod = await createTestApp(undefined, { NODE_ENV: 'production' });
-      try {
-        await prod.http.post('/dev/mock-payments/outage').send({ enabled: true }).expect(404);
-        await prod.http.post('/dev/mock-payments/mock_pi_x/simulate').send({ outcome: 'succeed' }).expect(404);
-      } finally {
-        await prod.close();
-      }
+  describe('production safety', () => {
+    it('the app REFUSES to start in production with the mock provider (its webhook signature is public), and leaves nothing behind', async () => {
+      await expect(createTestApp(undefined, { NODE_ENV: 'production' })).rejects.toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
     });
   });
 

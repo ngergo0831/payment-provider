@@ -1,9 +1,15 @@
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import { InvalidMoneyError, Money } from '../payments/domain/money';
-import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
+import { IsEnum, IsInt, IsString, IsUrl, Matches, Max, Min, MinLength, ValidateIf, validateSync } from 'class-validator';
 
 /** Every example secret in this repository starts with this, so production can refuse them. */
 const DEV_SECRET_PREFIX = 'dev-only';
+
+/** Which payment provider is used. Chosen once at startup. */
+export enum PaymentProviderName {
+  Mock = 'mock',
+  Stripe = 'stripe',
+}
 
 export enum Environment {
   Development = 'development',
@@ -52,6 +58,23 @@ export class EnvironmentVariables {
   @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
   PLAN_CURRENCY: string = 'USD';
 
+  // 'mock' needs nothing and works out of the box. 'stripe' needs the three keys below.
+  @IsEnum(PaymentProviderName)
+  PAYMENT_PROVIDER: PaymentProviderName = PaymentProviderName.Mock;
+
+  // Stripe settings are required ONLY when Stripe is the provider. Messages name the variable, never its value.
+  @ValidateIf((env: EnvironmentVariables) => env.PAYMENT_PROVIDER === PaymentProviderName.Stripe)
+  @Matches(/^sk_(test|live)_\S+$/, { message: 'STRIPE_SECRET_KEY must be a Stripe secret key (sk_test_... or sk_live_...)' })
+  STRIPE_SECRET_KEY?: string;
+
+  @ValidateIf((env: EnvironmentVariables) => env.PAYMENT_PROVIDER === PaymentProviderName.Stripe)
+  @Matches(/^pk_(test|live)_\S+$/, { message: 'STRIPE_PUBLISHABLE_KEY must be a Stripe publishable key (pk_test_... or pk_live_...)' })
+  STRIPE_PUBLISHABLE_KEY?: string;
+
+  @ValidateIf((env: EnvironmentVariables) => env.PAYMENT_PROVIDER === PaymentProviderName.Stripe)
+  @Matches(/^whsec_\S+$/, { message: 'STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret (whsec_...)' })
+  STRIPE_WEBHOOK_SECRET?: string;
+
   // How often queued outbox messages are delivered. 0 turns the timer off (tests trigger delivery themselves).
   // Number("") is 0, so an EMPTY variable would silently switch delivery off. Map it to NaN so it is rejected instead.
   @Transform(({ value }) => (value === '' ? NaN : Number(value)))
@@ -85,6 +108,12 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
   } catch (error) {
     if (!(error instanceof InvalidMoneyError)) throw error;
     throw new Error(`Invalid environment configuration:\n - PLAN_PRICE_MINOR / PLAN_CURRENCY: ${error.message}`);
+  }
+
+  // The mock's webhook "signature" is a fixed, public string. In production anyone could forge a "payment succeeded"
+  // webhook and activate accounts for free. The mock is for development and tests only: refuse to run it in production.
+  if (env.NODE_ENV === Environment.Production && env.PAYMENT_PROVIDER === PaymentProviderName.Mock) {
+    throw new Error('Invalid environment configuration:\n - PAYMENT_PROVIDER=mock is not allowed when NODE_ENV=production');
   }
 
   // The secret in .env.example is public (it is in the repository). Anyone who knows it can forge tokens, so a

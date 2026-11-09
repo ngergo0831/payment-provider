@@ -1,4 +1,4 @@
-import { Environment, validateEnv } from './env.validation';
+import { Environment, PaymentProviderName, validateEnv } from './env.validation';
 
 /** The typed, structured view of configuration the rest of the app depends on. */
 export interface AppConfig {
@@ -15,6 +15,9 @@ export interface AppConfig {
     expiresIn: string;
   };
   payments: {
+    provider: PaymentProviderName;
+    /** Only filled in when the provider is Stripe. The secret key and webhook secret must never be logged or returned. */
+    stripe: { secretKey: string; publishableKey: string; webhookSecret: string };
     /** The single plan on sale. Already validated as a real amount by Money. */
     plan: { priceMinor: number; currency: string };
     /** Milliseconds between outbox deliveries; 0 = timer off. */
@@ -36,6 +39,12 @@ export const configuration = (): AppConfig => {
     database: { url: env.DATABASE_URL },
     jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },
     payments: {
+      provider: env.PAYMENT_PROVIDER,
+      stripe: {
+        secretKey: env.STRIPE_SECRET_KEY ?? '',
+        publishableKey: env.STRIPE_PUBLISHABLE_KEY ?? '',
+        webhookSecret: env.STRIPE_WEBHOOK_SECRET ?? '',
+      },
       plan: { priceMinor: env.PLAN_PRICE_MINOR, currency: env.PLAN_CURRENCY.toUpperCase() },
       outboxPollIntervalMs: env.OUTBOX_POLL_INTERVAL_MS,
       reconcileIntervalMs: env.RECONCILE_INTERVAL_MS,

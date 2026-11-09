@@ -103,7 +103,7 @@ Rules:
 | [x] | 20 | Webhook endpoint (`POST /webhooks/payments`, provider-neutral) with inbox table (duplicates, unknown payments, retries), event is a trigger not truth; plus the dev-only mock simulator endpoints (simulate a payment outcome, with or without its webhook; switch an outage on and off) | Signed webhooks; ordering and replay | `feat: handle provider webhooks` |
 | [x] | 21 | Reconciliation job for lost webhooks (plus a tiny shared `PeriodicTask` timer) | The safety net for "paid but not activated" | `feat: add payment reconciliation` |
 | [x] | 22 | `StripePaymentProvider` adapter (offline-verified; not yet run against Stripe's servers: no API key available); contract suite runs against it when Stripe test keys are present; webhook signature tests | Mapping Stripe states and errors into ours | `feat: add Stripe adapter` |
-| [ ] | 23 | Provider selection by config, public checkout config, Stripe-signed webhook e2e (raw body) | The raw-body pitfall | `feat: wire Stripe provider` |
+| [x] | 23 | Provider selection by config (`PAYMENT_PROVIDER`; the mock is refused in production), public checkout config, Stripe-signed webhook e2e (raw body) | The raw-body pitfall | `feat: wire Stripe provider` |
 | [ ] | 24 | Safe logging: payment id + request id on every line, PII/card-data redaction, tests | Logs are a data-leak surface | `feat: add safe payment logging` |
 
 ## Phase 4 · Frontend (minimal)

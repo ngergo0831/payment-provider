@@ -147,7 +147,28 @@ Failure drills: `{"outcome": "succeed", "deliverWebhook": false}` simulates a **
 customer resumes checkout via `POST /payments`), and `POST /dev/mock-payments/outage` switches the provider "off".
 These dev endpoints answer `404` when `NODE_ENV=production`.
 
-Currently only a built-in mock provider is available (see `docs/adr/0005-payment-provider-port.md`).
+### Choosing the payment provider
+
+`PAYMENT_PROVIDER` selects it at startup (the design is in `docs/adr/0005-payment-provider-port.md`):
+
+| Value | Needs | Use for |
+|---|---|---|
+| `mock` (default) | nothing | development and tests. Refused when `NODE_ENV=production`: its webhook "signature" is public, so anyone could fake a payment |
+| `stripe` | `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | real payments (use Stripe's **test mode** keys while developing) |
+
+`GET /checkout-config` (public) tells the browser which provider is active, Stripe's *publishable* key (designed to be public;
+never the secret key) and the price, which is what a payment screen needs.
+
+To use Stripe, put the three settings in `backend/.env` (see `.env.example`), and in the Stripe dashboard point a webhook at
+`POST https://<your-host>/webhooks/payments` for the `payment_intent.*` events. The adapter's logic is covered by tests that run
+offline. To also run the shared provider contract against Stripe's test mode (this creates test payments):
+
+```bash
+cd backend
+STRIPE_TEST_SECRET_KEY=sk_test_... npm test -- stripe-payment.provider.contract
+```
+
+A live key (`sk_live_...`) is refused by that test.
 
 ## Error format
 

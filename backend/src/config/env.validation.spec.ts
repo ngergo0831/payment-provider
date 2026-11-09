@@ -4,6 +4,13 @@ const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
 const JWT_SECRET = 'unit-test-secret-that-is-32-chars+';
 /** The smallest valid environment: everything else has a default. */
 const valid = { DATABASE_URL, JWT_SECRET };
+/** Stripe, fully configured. Production requires it, because the mock provider is refused there. */
+const stripe = {
+  PAYMENT_PROVIDER: 'stripe',
+  STRIPE_SECRET_KEY: 'sk_test_abc123',
+  STRIPE_PUBLISHABLE_KEY: 'pk_test_abc123',
+  STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+};
 
 describe('validateEnv', () => {
   it('applies defaults for everything except the required secrets', () => {
@@ -15,7 +22,7 @@ describe('validateEnv', () => {
   });
 
   it('converts PORT from a string to a number', () => {
-    const env = validateEnv({ ...valid, PORT: '8080', NODE_ENV: 'production' });
+    const env = validateEnv({ ...valid, ...stripe, PORT: '8080', NODE_ENV: 'production' });
     expect(env.PORT).toBe(8080);
     expect(env.NODE_ENV).toBe(Environment.Production);
   });
@@ -117,11 +124,11 @@ describe('validateEnv', () => {
     });
 
     it('is REFUSED in production, because anyone who has read the repository knows it', () => {
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'production' })).toThrow(/public development example/);
+      expect(() => validateEnv({ DATABASE_URL, ...stripe, JWT_SECRET: exampleSecret, NODE_ENV: 'production' })).toThrow(/public development example/);
     });
 
     it('a real secret works in production', () => {
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(48), NODE_ENV: 'production' })).not.toThrow();
+      expect(() => validateEnv({ DATABASE_URL, ...stripe, JWT_SECRET: 'x'.repeat(48), NODE_ENV: 'production' })).not.toThrow();
     });
   });
 
@@ -132,6 +139,61 @@ describe('validateEnv', () => {
 
     it.each(['24', 'h', '1 h', '-5m', '1w', 'forever', ''])('rejects %j', (value) => {
       expect(() => validateEnv({ ...valid, JWT_EXPIRES_IN: value })).toThrow(/JWT_EXPIRES_IN/);
+    });
+  });
+
+  describe('PAYMENT_PROVIDER', () => {
+    it('defaults to the mock, which needs no keys', () => {
+      const env = validateEnv(valid);
+      expect(env.PAYMENT_PROVIDER).toBe('mock');
+      expect(env.STRIPE_SECRET_KEY).toBeUndefined();
+    });
+
+    it('accepts Stripe when all three keys are present and well-formed', () => {
+      expect(validateEnv({ ...valid, ...stripe })).toMatchObject({ PAYMENT_PROVIDER: 'stripe', STRIPE_SECRET_KEY: 'sk_test_abc123' });
+    });
+
+    it.each([['paypal'], ['STRIPE'], ['']])('rejects the unknown provider %j', (name) => {
+      expect(() => validateEnv({ ...valid, PAYMENT_PROVIDER: name })).toThrow(/PAYMENT_PROVIDER/);
+    });
+
+    describe('when the provider is Stripe, every Stripe setting is required and checked', () => {
+      it.each(['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET'])('%s is required', (name) => {
+        const { [name]: _removed, ...without } = stripe as Record<string, string>;
+        expect(() => validateEnv({ ...valid, ...without })).toThrow(new RegExp(name));
+      });
+
+      it.each([
+        ['STRIPE_SECRET_KEY', 'pk_test_abc'], // a publishable key where the SECRET one belongs
+        ['STRIPE_SECRET_KEY', 'not-a-key'],
+        ['STRIPE_SECRET_KEY', 'sk_test_'],
+        ['STRIPE_PUBLISHABLE_KEY', 'sk_test_abc'], // the secret key where the public one belongs: a dangerous mix-up
+        ['STRIPE_WEBHOOK_SECRET', 'sk_test_abc'],
+        ['STRIPE_WEBHOOK_SECRET', ''],
+      ])('%s rejects %j', (name, value) => {
+        expect(() => validateEnv({ ...valid, ...stripe, [name]: value })).toThrow(new RegExp(name));
+      });
+
+      it('accepts live keys too (the key itself decides test vs live)', () => {
+        expect(() => validateEnv({ ...valid, ...stripe, STRIPE_SECRET_KEY: 'sk_live_abc', STRIPE_PUBLISHABLE_KEY: 'pk_live_abc' })).not.toThrow();
+      });
+
+      it('never puts a key in the error message', () => {
+        expect.assertions(1);
+        try {
+          validateEnv({ ...valid, ...stripe, STRIPE_SECRET_KEY: 'TOPSECRET-mistyped-key' });
+        } catch (error) {
+          expect((error as Error).message).not.toContain('TOPSECRET'); // names the variable, never the value
+        }
+      });
+    });
+
+    it('Stripe settings are NOT required for the mock (no keys needed to run the project)', () => {
+      expect(() => validateEnv({ ...valid, PAYMENT_PROVIDER: 'mock' })).not.toThrow();
+    });
+
+    it('the mock is REFUSED in production: its webhook "signature" is public, so anyone could fake a payment', () => {
+      expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48) })).toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
     });
   });
 

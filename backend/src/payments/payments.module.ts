@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppConfig } from '../config/configuration';
+import { PaymentProviderName } from '../config/env.validation';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
 import { OUTBOX_HANDLERS, OutboxDispatcher } from './application/outbox-dispatcher';
@@ -22,13 +25,15 @@ import { TypeOrmPaymentRepository } from './infrastructure/persistence/typeorm-p
 import { TypeOrmWebhookEventRepository } from './infrastructure/persistence/typeorm-webhook-event.repository';
 import { WebhookEventRecord } from './infrastructure/persistence/webhook-event.record';
 import { MockPaymentProvider } from './infrastructure/providers/mock-payment.provider';
+import { StripePaymentProvider } from './infrastructure/providers/stripe-payment.provider';
+import { CheckoutConfigController } from './presentation/checkout-config.controller';
 import { MockPaymentsDevController } from './presentation/mock-payments-dev.controller';
 import { PaymentsController } from './presentation/payments.controller';
 import { WebhooksController } from './presentation/webhooks.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([PaymentRecord, WebhookEventRecord, OutboxRecord]), OnboardingModule, JwtAuthModule],
-  controllers: [PaymentsController, WebhooksController, MockPaymentsDevController],
+  controllers: [PaymentsController, CheckoutConfigController, WebhooksController, MockPaymentsDevController],
   providers: [
     StartPaymentUseCase,
     GetPaymentUseCase,
@@ -48,10 +53,15 @@ import { WebhooksController } from './presentation/webhooks.controller';
     { provide: CompanyGateway, useClass: OnboardingCompanyGateway },
     { provide: PlanPricing, useClass: ConfigPlanPricing },
     {
-      // The composition root for the integration: the ONE place that chooses a concrete provider.
-      // Only the mock exists so far; choosing Stripe by configuration arrives with the Stripe adapter (task 23).
+      // The composition root for the integration: the ONE place that chooses a concrete provider, from configuration.
       provide: PaymentProvider,
-      useFactory: (): PaymentProvider => new MockPaymentProvider(),
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<AppConfig, true>): PaymentProvider => {
+        const { provider, stripe } = config.get('payments', { infer: true });
+        return provider === PaymentProviderName.Stripe
+          ? new StripePaymentProvider({ secretKey: stripe.secretKey, webhookSecret: stripe.webhookSecret })
+          : new MockPaymentProvider();
+      },
     },
   ],
   exports: [PaymentRepository, WebhookEventRepository, PaymentProvider, OutboxDispatcher, ReconcilePaymentsUseCase],
