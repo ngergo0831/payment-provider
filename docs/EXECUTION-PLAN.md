@@ -104,7 +104,7 @@ Rules:
 | [x] | 21 | Reconciliation job for lost webhooks (plus a tiny shared `PeriodicTask` timer) | The safety net for "paid but not activated" | `feat: add payment reconciliation` |
 | [x] | 22 | `StripePaymentProvider` adapter (offline-verified; not yet run against Stripe's servers: no API key available); contract suite runs against it when Stripe test keys are present; webhook signature tests | Mapping Stripe states and errors into ours | `feat: add Stripe adapter` |
 | [x] | 23 | Provider selection by config (`PAYMENT_PROVIDER`; the mock is refused in production), public checkout config, Stripe-signed webhook e2e (raw body) | The raw-body pitfall | `feat: wire Stripe provider` |
-| [ ] | 24 | Safe logging: payment id + request id on every line, PII/card-data redaction, tests | Logs are a data-leak surface | `feat: add safe payment logging` |
+| [x] | 24 | Safe logging: a "log canary" test proves no personal data, token or secret reaches the logs; fixed a real leak (TypeORM logged query parameters). The planned "request id on every log line" was dropped as unnecessary plumbing: errors already carry it and payment logs carry the payment id | Logs are a data-leak surface | `feat: add safe payment logging` |
 
 ## Phase 4 · Frontend (minimal)
 

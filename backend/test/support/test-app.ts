@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, LoggerService, LogLevel } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import pg from 'pg';
 import request from 'supertest';
@@ -43,6 +43,7 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
 export async function createTestApp(
   beforeInit?: (app: INestApplication) => void,
   env: Record<string, string> = {},
+  logger: LogLevel[] | LoggerService = ['error'],
 ): Promise<TestApp> {
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
@@ -70,7 +71,7 @@ export async function createTestApp(
     const { configureApp } = await import('../../src/app.setup');
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication({ rawBody: true, logger: ['error'] });
+    app = moduleRef.createNestApplication({ rawBody: true, logger });
     configureApp(app);
     // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
     beforeInit?.(app);

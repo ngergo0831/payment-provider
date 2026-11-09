@@ -170,6 +170,15 @@ STRIPE_TEST_SECRET_KEY=sk_test_... npm test -- stripe-payment.provider.contract
 
 A live key (`sk_live_...`) is refused by that test.
 
+## Logs and privacy
+
+Logs are a data-leak surface, so they are tested like one. An end-to-end "canary" test (`backend/test/log-safety.e2e-spec.ts`)
+runs registrations, payments, webhooks, outages and several failures with all logging on, and checks that no email, name,
+company detail, token, signing secret or payment client secret appears anywhere in the output. It already caught one real
+leak: TypeORM's error logging prints a failed query *with its parameter values*, so it is switched off (the failure is still
+logged by the exception filter, with its stack and without the parameters). Error logs carry the request id, and payment logs
+carry the payment id.
+
 ## Error format
 
 Every failing request returns the same JSON shape. Clients branch on `code`, never on `message`.

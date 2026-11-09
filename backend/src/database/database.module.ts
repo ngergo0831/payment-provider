@@ -31,8 +31,11 @@ const CONNECT_RETRY_DELAY_MS = 2000;
         retryAttempts: CONNECT_RETRY_ATTEMPTS,
         retryDelay: CONNECT_RETRY_DELAY_MS,
 
-        // Log failures and migration activity; never log queries (they contain customer data).
-        logging: ['error', 'warn', 'migration'],
+        // NO 'error' here, on purpose. TypeORM's error logging prints the failed query WITH ITS PARAMETER VALUES, i.e.
+        // customer emails, names and payment details, straight into the logs. The failure itself is not lost: it is thrown
+        // as an exception and logged by the global exception filter (message and stack, without the parameters).
+        // 'query' is never enabled either, for the same reason.
+        logging: ['warn', 'migration'],
       }),
     }),
   ],
