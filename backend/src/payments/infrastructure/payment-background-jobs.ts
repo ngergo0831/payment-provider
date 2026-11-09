@@ -1,4 +1,4 @@
-import { Injectable, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PeriodicTask } from '../../common/scheduling/periodic-task';
 import { AppConfig } from '../../config/configuration';
@@ -13,7 +13,7 @@ import { ReconcilePaymentsUseCase } from '../application/use-cases/reconcile-pay
  * Single-instance assumption: several instances would be safe (every step is idempotent) but would duplicate work.
  */
 @Injectable()
-export class PaymentBackgroundJobs implements OnApplicationBootstrap, OnApplicationShutdown {
+export class PaymentBackgroundJobs implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly tasks: PeriodicTask[];
 
   constructor(dispatcher: OutboxDispatcher, reconcile: ReconcilePaymentsUseCase, config: ConfigService<AppConfig, true>) {
@@ -28,7 +28,11 @@ export class PaymentBackgroundJobs implements OnApplicationBootstrap, OnApplicat
     this.tasks.forEach((task) => task.start());
   }
 
-  onApplicationShutdown(): void {
-    this.tasks.forEach((task) => task.stop());
+  /**
+   * Stops the timers and waits for runs in progress. Module destruction is the FIRST shutdown phase, so this finishes
+   * before the database connection is closed (TypeORM does that in the last phase, onApplicationShutdown).
+   */
+  async onModuleDestroy(): Promise<void> {
+    await Promise.all(this.tasks.map((task) => task.stop()));
   }
 }

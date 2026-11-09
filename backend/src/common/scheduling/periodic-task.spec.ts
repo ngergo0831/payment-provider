@@ -3,14 +3,22 @@ import { Logger } from '@nestjs/common';
 import { PeriodicTask } from './periodic-task';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Waits for a condition instead of a fixed time, so a busy CI machine cannot make the test flaky. */
+async function waitUntil(condition: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error('condition not reached in time');
+    await sleep(5);
+  }
+}
 
 describe('PeriodicTask', () => {
   let task: PeriodicTask | undefined;
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
-  afterEach(() => {
-    task?.stop();
+  afterEach(async () => {
+    await task?.stop();
     jest.restoreAllMocks();
   });
 
@@ -19,12 +27,11 @@ describe('PeriodicTask', () => {
     task = new PeriodicTask('t', async () => void runs++, 10);
     task.start();
 
-    await sleep(80);
-    task.stop();
+    await waitUntil(() => runs >= 3);
+    await task.stop();
     const atStop = runs;
     await sleep(40);
 
-    expect(atStop).toBeGreaterThanOrEqual(3);
     expect(runs).toBe(atStop); // nothing after stop()
   });
 
@@ -68,14 +75,34 @@ describe('PeriodicTask', () => {
     );
     task.start();
 
-    await sleep(80);
+    await waitUntil(() => runs >= 3);
 
-    expect(runs).toBeGreaterThanOrEqual(3);
     expect(Logger.prototype.error).toHaveBeenCalledTimes(1);
   });
 
-  it('can be stopped even if it was never started', () => {
+  it('can be stopped even if it was never started', async () => {
     task = new PeriodicTask('t', async () => undefined, 10);
-    expect(() => task?.stop()).not.toThrow();
+    await expect(task.stop()).resolves.toBeUndefined();
+  });
+
+  it('stop() waits for a run in progress to finish (graceful shutdown: the database is still there for it)', async () => {
+    let started = false;
+    let finished = false;
+    task = new PeriodicTask(
+      't',
+      async () => {
+        started = true;
+        await sleep(60);
+        finished = true;
+      },
+      5,
+    );
+    task.start();
+    await waitUntil(() => started); // a run is now in progress
+    expect(finished).toBe(false);
+
+    await task.stop();
+
+    expect(finished).toBe(true);
   });
 });

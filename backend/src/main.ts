@@ -11,6 +11,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   configureApp(app);
   setupSwagger(app);
+  // On SIGTERM (docker stop, a deploy) run the shutdown hooks: finish the background jobs in progress, stop taking
+  // requests, then close the database pool. Without this, the process is killed mid-work.
+  app.enableShutdownHooks();
   const config = app.get<ConfigService<AppConfig, true>>(ConfigService);
   const port = config.get('port', { infer: true });
 
