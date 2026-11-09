@@ -14,6 +14,10 @@ export interface AppConfig {
     /** e.g. "24h". */
     expiresIn: string;
   };
+  payments: {
+    /** The single plan on sale. Already validated as a real amount by Money. */
+    plan: { priceMinor: number; currency: string };
+  };
 }
 
 /**
@@ -27,5 +31,6 @@ export const configuration = (): AppConfig => {
     port: env.PORT,
     database: { url: env.DATABASE_URL },
     jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },
+    payments: { plan: { priceMinor: env.PLAN_PRICE_MINOR, currency: env.PLAN_CURRENCY.toUpperCase() } },
   };
 };

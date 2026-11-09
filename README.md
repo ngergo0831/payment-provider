@@ -97,6 +97,21 @@ curl http://localhost:3000/onboarding/status -H "Authorization: Bearer <accessTo
 - There is no login or refresh in this slice: losing the token means registering again.
 - `JWT_SECRET` is required (32+ characters). The example in `.env.example` is public and is refused when `NODE_ENV=production`.
 
+## Paying
+
+Both endpoints need the `Authorization: Bearer <accessToken>` header; the company always comes from the token.
+
+- `POST /payments` **starts or resumes** the company's payment and returns what the browser needs to pay (`clientSecret`).
+  Calling it again is always safe: a double click, a page reload, a retry after a declined card or after the provider
+  was down all return the same open payment. A company never has two open payments.
+- `GET /payments/{id}` returns the stored status (cheap to poll). Another company's payment is a `404`.
+
+The price comes from configuration (`PLAN_PRICE_MINOR`, `PLAN_CURRENCY`; default 49.00 USD) and is validated at startup.
+If the payment provider is down the answer is `503 PAYMENT_PROVIDER_UNAVAILABLE` ("nothing was charged"), and the next call
+resumes the same payment. Starting a payment does not activate the account; that happens after the provider confirms it.
+
+Currently only a built-in mock provider is available (see `docs/adr/0005-payment-provider-port.md`).
+
 ## Error format
 
 Every failing request returns the same JSON shape. Clients branch on `code`, never on `message`.

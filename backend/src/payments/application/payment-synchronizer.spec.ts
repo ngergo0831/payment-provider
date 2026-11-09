@@ -1,0 +1,114 @@
+import { InMemoryPaymentRepository } from '../../testing/in-memory-payments';
+import { Money } from '../domain/money';
+import { Payment } from '../domain/payment';
+import { PaymentStatus } from '../domain/payment-status';
+import { PaymentSynchronizer, ProviderAmountMismatchError } from './payment-synchronizer';
+import { ProviderPayment } from './ports/payment-provider';
+import { PaymentConcurrentModificationError } from './ports/repositories';
+
+const remote = (overrides: Partial<ProviderPayment> = {}): ProviderPayment => ({
+  providerRef: 'pi_1',
+  status: PaymentStatus.CREATED,
+  amount: Money.of(4900, 'USD'),
+  clientSecret: 'secret',
+  failureCode: null,
+  ...overrides,
+});
+
+async function setup() {
+  const repo = new InMemoryPaymentRepository();
+  const payment = Payment.start({ companyId: 'c1', provider: 'mock', amount: Money.of(4900, 'USD') });
+  await repo.insert(payment);
+  return { repo, payment, synchronizer: new PaymentSynchronizer(repo) };
+}
+
+describe('PaymentSynchronizer', () => {
+  it('links the provider reference, applies the provider status and records when it synchronised', async () => {
+    const { synchronizer, payment } = await setup();
+
+    const saved = await synchronizer.apply(payment.id, remote({ status: PaymentStatus.SUCCEEDED }));
+
+    expect(saved).toMatchObject({ providerRef: 'pi_1', status: PaymentStatus.SUCCEEDED, version: 1 });
+    expect(saved.lastSyncedAt).toBeInstanceOf(Date);
+  });
+
+  it('is idempotent: applying the same provider snapshot twice leaves the same state', async () => {
+    const { synchronizer, payment } = await setup();
+    const snapshot = remote({ status: PaymentStatus.FAILED, failureCode: 'card_declined' });
+
+    await synchronizer.apply(payment.id, snapshot);
+    const second = await synchronizer.apply(payment.id, snapshot);
+
+    expect(second).toMatchObject({ status: PaymentStatus.FAILED, failureCode: 'card_declined' });
+  });
+
+  it('ignores stale news instead of regressing the payment (a success is not undone by a late failure)', async () => {
+    const { synchronizer, payment } = await setup();
+    await synchronizer.apply(payment.id, remote({ status: PaymentStatus.SUCCEEDED }));
+
+    const saved = await synchronizer.apply(payment.id, remote({ status: PaymentStatus.FAILED, failureCode: 'late' }));
+
+    expect(saved.status).toBe(PaymentStatus.SUCCEEDED);
+    expect(saved.failureCode).toBeNull();
+  });
+
+  describe('when another request saved first (optimistic lock lost)', () => {
+    it('re-reads the newest version and applies again, so the caller still succeeds', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      repo.conflictsToInject = 2;
+
+      const saved = await synchronizer.apply(payment.id, remote({ status: PaymentStatus.PROCESSING }));
+
+      expect(saved.status).toBe(PaymentStatus.PROCESSING);
+      expect(repo.saveCalls).toBe(3); // two lost races, then success
+    });
+
+    it('does not write again when the winner already applied the SAME news: no retry storm', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      const news = remote({ status: PaymentStatus.SUCCEEDED });
+
+      const results = await Promise.all(Array.from({ length: 5 }, () => synchronizer.apply(payment.id, news)));
+
+      expect(results.every((saved) => saved.status === PaymentStatus.SUCCEEDED)).toBe(true);
+      expect(repo.saveCalls).toBeLessThanOrEqual(5); // 1 success + up to 4 lost races, and NO retries of those
+      expect((await repo.findById(payment.id))?.version).toBe(1); // written exactly once
+    });
+
+    it('gives up after 3 attempts with the conflict error, rather than looping forever', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      repo.conflictsToInject = 10;
+
+      await expect(synchronizer.apply(payment.id, remote())).rejects.toBeInstanceOf(PaymentConcurrentModificationError);
+      expect(repo.saveCalls).toBe(3);
+    });
+  });
+
+  describe('safety checks', () => {
+    it('REFUSES to proceed when the provider reports a different amount than we asked for', async () => {
+      const { synchronizer, payment, repo } = await setup();
+
+      await expect(synchronizer.apply(payment.id, remote({ amount: Money.of(100, 'USD') }))).rejects.toBeInstanceOf(
+        ProviderAmountMismatchError,
+      );
+      expect((await repo.findById(payment.id))?.providerRef).toBeNull(); // nothing was recorded
+    });
+
+    it('refuses a different currency even with the same number', async () => {
+      const { synchronizer, payment } = await setup();
+      await expect(synchronizer.apply(payment.id, remote({ amount: Money.of(4900, 'EUR') }))).rejects.toBeInstanceOf(
+        ProviderAmountMismatchError,
+      );
+    });
+
+    it('refuses to link a payment to a second, different provider payment', async () => {
+      const { synchronizer, payment } = await setup();
+      await synchronizer.apply(payment.id, remote({ providerRef: 'pi_1' }));
+      await expect(synchronizer.apply(payment.id, remote({ providerRef: 'pi_OTHER' }))).rejects.toThrow(/already linked/);
+    });
+
+    it('fails clearly when the payment no longer exists', async () => {
+      const { synchronizer } = await setup();
+      await expect(synchronizer.apply('00000000-0000-4000-8000-000000000000', remote())).rejects.toThrow(/disappeared/);
+    });
+  });
+});

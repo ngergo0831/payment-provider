@@ -1,4 +1,5 @@
 import { plainToInstance, Type } from 'class-transformer';
+import { InvalidMoneyError, Money } from '../payments/domain/money';
 import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, validateSync } from 'class-validator';
 
 /** Every example secret in this repository starts with this, so production can refuse them. */
@@ -40,6 +41,16 @@ export class EnvironmentVariables {
   // How long a token stays valid: a number plus a unit (s, m, h, d), e.g. "30m" or "24h".
   @Matches(/^\d+[smhd]$/, { message: 'JWT_EXPIRES_IN must look like 30m, 24h or 7d' })
   JWT_EXPIRES_IN: string = '24h';
+
+  // The one plan this slice sells, in MINOR units (4900 = 49.00 USD, 4900 = 4900 JPY). Whether the amount and
+  // currency make sense TOGETHER is checked by Money in validateEnv, so a bad value stops the deploy.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  PLAN_PRICE_MINOR: number = 4900;
+
+  @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
+  PLAN_CURRENCY: string = 'USD';
 }
 
 /**
@@ -53,6 +64,14 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
   if (errors.length > 0) {
     const problems = errors.flatMap((error) => Object.values(error.constraints ?? {}));
     throw new Error(`Invalid environment configuration:\n - ${problems.join('\n - ')}`);
+  }
+
+  // The price must be a real amount in a currency we know how to charge (explicit list, no guessing).
+  try {
+    Money.of(env.PLAN_PRICE_MINOR, env.PLAN_CURRENCY);
+  } catch (error) {
+    if (!(error instanceof InvalidMoneyError)) throw error;
+    throw new Error(`Invalid environment configuration:\n - PLAN_PRICE_MINOR / PLAN_CURRENCY: ${error.message}`);
   }
 
   // The secret in .env.example is public (it is in the repository). Anyone who knows it can forge tokens, so a

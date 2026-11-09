@@ -134,5 +134,28 @@ describe('validateEnv', () => {
       expect(() => validateEnv({ ...valid, JWT_EXPIRES_IN: value })).toThrow(/JWT_EXPIRES_IN/);
     });
   });
-});
 
+  describe('the plan price', () => {
+    it('defaults to 49.00 USD (4900 minor units)', () => {
+      const env = validateEnv(valid);
+      expect(env.PLAN_PRICE_MINOR).toBe(4900);
+      expect(env.PLAN_CURRENCY).toBe('USD');
+    });
+
+    it('accepts another supported currency, any letter case', () => {
+      expect(validateEnv({ ...valid, PLAN_PRICE_MINOR: '5000', PLAN_CURRENCY: 'jpy' })).toMatchObject({ PLAN_PRICE_MINOR: 5000 });
+    });
+
+    it.each([['0'], ['-5'], ['49.5'], ['abc'], ['']])('rejects PLAN_PRICE_MINOR %j', (price) => {
+      expect(() => validateEnv({ ...valid, PLAN_PRICE_MINOR: price })).toThrow(/PLAN_PRICE_MINOR/);
+    });
+
+    it.each([['US'], ['USDX'], ['$$$'], ['']])('rejects a malformed PLAN_CURRENCY %j', (currency) => {
+      expect(() => validateEnv({ ...valid, PLAN_CURRENCY: currency })).toThrow(/PLAN_CURRENCY/);
+    });
+
+    it('rejects a currency Money does not support, instead of guessing its decimals', () => {
+      expect(() => validateEnv({ ...valid, PLAN_CURRENCY: 'BTC' })).toThrow(/Unsupported currency/);
+    });
+  });
+});
