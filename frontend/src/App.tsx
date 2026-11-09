@@ -1,25 +1,31 @@
-import { useEffect, useState } from 'react';
-import { api, ApiError } from './api/client';
-import type { CheckoutConfig } from './api/types';
+import { useState } from 'react';
+import { RegisterPage } from './pages/RegisterPage';
+import { clearSession, loadSession, saveSession, type Session } from './session';
 
-/** Skeleton only: proves the browser -> /api proxy -> backend path works. The real screens arrive in the next tasks. */
 export function App() {
-  const [config, setConfig] = useState<CheckoutConfig>();
-  const [error, setError] = useState<string>();
+  const [session, setSession] = useState<Session | null>(loadSession);
 
-  useEffect(() => {
-    api.checkoutConfig().then(setConfig, (e: ApiError) => setError(e.message));
-  }, []);
+  function onRegistered(next: Session) {
+    saveSession(next);
+    setSession(next);
+  }
+
+  function signOut() {
+    clearSession();
+    setSession(null);
+  }
 
   return (
     <main>
-      <h1>Payment Service</h1>
-      {error && <p role="alert">{error}</p>}
-      {config && (
-        <p>
-          Plan: {(config.price.amountMinor / 100).toFixed(2)} {config.price.currency} · provider: {config.provider}
-        </p>
-      )}
+      <header>
+        <h1>Payment Service</h1>
+        {session && (
+          <button type="button" className="link" onClick={signOut}>
+            Start over
+          </button>
+        )}
+      </header>
+      {session ? <p>Welcome, {session.companyName}. The payment step comes next.</p> : <RegisterPage onRegistered={onRegistered} />}
     </main>
   );
 }
