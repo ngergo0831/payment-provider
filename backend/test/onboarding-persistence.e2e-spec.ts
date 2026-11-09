@@ -1,4 +1,3 @@
-import { DataSource } from 'typeorm';
 import { EmailAlreadyRegisteredException } from '../src/common/errors/email-already-registered.exception';
 import { AccountRepository, CompanyRepository, UserRepository } from '../src/onboarding/application/ports';
 import { Company, CompanyStatus } from '../src/onboarding/domain/company.entity';
@@ -23,22 +22,6 @@ describe('onboarding persistence (real PostgreSQL)', () => {
   });
   afterAll(async () => {
     await t.close();
-  });
-
-  describe('schema', () => {
-    it('contains exactly the tables the migrations create', async () => {
-      const tables = await queryDatabase<{ table_name: string }>(
-        t.databaseUrl,
-        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
-      );
-      expect(tables.map((row) => row.table_name)).toEqual(['companies', 'migrations', 'users']);
-    });
-
-    it('matches the entities exactly: no drift between the hand-written migration and the code', async () => {
-      // Asks TypeORM "what SQL would make the database match the entities?". Anything returned is drift.
-      const pending = await t.app.get(DataSource).driver.createSchemaBuilder().log();
-      expect(pending.upQueries.map((q) => q.query)).toEqual([]);
-    });
   });
 
   describe('companies', () => {

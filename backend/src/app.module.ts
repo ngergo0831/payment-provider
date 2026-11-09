@@ -5,6 +5,7 @@ import { configuration } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { PaymentsModule } from './payments/payments.module';
 
 /** Root module. Feature modules (auth, onboarding, payments) are imported here as they are built. */
 @Module({
@@ -15,6 +16,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
     HealthModule,
     OnboardingModule,
     AuthModule,
+    PaymentsModule,
   ],
 })
 export class AppModule {}
