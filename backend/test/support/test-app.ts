@@ -54,8 +54,9 @@ export async function createTestApp(
     NODE_ENV: 'test',
     DATABASE_URL: databaseUrl.toString(),
     JWT_SECRET: TEST_JWT_SECRET,
-    // No background timer in tests: they call the dispatcher themselves, so results are deterministic.
+    // No background timers in tests: they trigger delivery and reconciliation themselves, so results are deterministic.
     OUTBOX_POLL_INTERVAL_MS: '0',
+    RECONCILE_INTERVAL_MS: '0',
     ...env,
   });
 

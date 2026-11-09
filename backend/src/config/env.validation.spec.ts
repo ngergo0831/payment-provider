@@ -135,6 +135,17 @@ describe('validateEnv', () => {
     });
   });
 
+  describe('RECONCILE_INTERVAL_MS', () => {
+    it('defaults to one minute, and 0 (timer off) is allowed', () => {
+      expect(validateEnv(valid).RECONCILE_INTERVAL_MS).toBe(60000);
+      expect(validateEnv({ ...valid, RECONCILE_INTERVAL_MS: '0' }).RECONCILE_INTERVAL_MS).toBe(0);
+    });
+
+    it.each([['-1'], ['1.5'], ['often'], ['']])('rejects %j (an empty value must not silently switch the safety net off)', (value) => {
+      expect(() => validateEnv({ ...valid, RECONCILE_INTERVAL_MS: value })).toThrow(/RECONCILE_INTERVAL_MS/);
+    });
+  });
+
   describe('OUTBOX_POLL_INTERVAL_MS', () => {
     it('defaults to 1000, and 0 (timer off) is allowed', () => {
       expect(validateEnv(valid).OUTBOX_POLL_INTERVAL_MS).toBe(1000);

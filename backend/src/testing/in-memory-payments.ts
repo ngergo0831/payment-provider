@@ -41,6 +41,15 @@ export class InMemoryPaymentRepository extends PaymentRepository {
     return this.all().find((payment) => payment.companyId === companyId && payment.isOpen()) ?? null;
   }
 
+  async findDueForReconciliation(query: { notSyncedSince: Date; createdAfter: Date; limit: number }): Promise<Payment[]> {
+    return this.all()
+      .filter((payment) => payment.isOpen() && payment.providerRef !== null)
+      .filter((payment) => payment.createdAt > query.createdAfter)
+      .filter((payment) => (payment.lastSyncedAt ?? payment.createdAt) < query.notSyncedSince)
+      .sort((a, b) => (a.lastSyncedAt ?? a.createdAt).getTime() - (b.lastSyncedAt ?? b.createdAt).getTime())
+      .slice(0, query.limit);
+  }
+
   async insert(payment: Payment): Promise<void> {
     if (this.all().some((existing) => existing.companyId === payment.companyId && existing.isOpen())) {
       throw new OpenPaymentAlreadyExistsError();

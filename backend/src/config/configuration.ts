@@ -19,6 +19,8 @@ export interface AppConfig {
     plan: { priceMinor: number; currency: string };
     /** Milliseconds between outbox deliveries; 0 = timer off. */
     outboxPollIntervalMs: number;
+    /** Milliseconds between reconciliation runs; 0 = timer off. */
+    reconcileIntervalMs: number;
   };
 }
 
@@ -36,6 +38,7 @@ export const configuration = (): AppConfig => {
     payments: {
       plan: { priceMinor: env.PLAN_PRICE_MINOR, currency: env.PLAN_CURRENCY.toUpperCase() },
       outboxPollIntervalMs: env.OUTBOX_POLL_INTERVAL_MS,
+      reconcileIntervalMs: env.RECONCILE_INTERVAL_MS,
     },
   };
 };

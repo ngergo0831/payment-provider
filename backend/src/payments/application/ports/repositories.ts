@@ -31,6 +31,12 @@ export abstract class PaymentRepository {
   abstract findOpenByCompany(companyId: string): Promise<Payment | null>;
 
   /**
+   * Open payments that are linked to the provider, were created after `createdAfter`, and have not been compared with
+   * the provider since `notSyncedSince` (a payment never synced counts from its creation). Least recently synced first.
+   */
+  abstract findDueForReconciliation(query: { notSyncedSince: Date; createdAfter: Date; limit: number }): Promise<Payment[]>;
+
+  /**
    * Stores a NEW payment.
    * @throws OpenPaymentAlreadyExistsError if the company already has an open payment, including when two requests race.
    */

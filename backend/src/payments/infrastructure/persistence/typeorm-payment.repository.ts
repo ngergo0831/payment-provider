@@ -35,6 +35,19 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     return this.toDomainOrNull(await this.records.findOneBy({ companyId, status: In([...OPEN_STATUSES]) }));
   }
 
+  async findDueForReconciliation(query: { notSyncedSince: Date; createdAfter: Date; limit: number }): Promise<Payment[]> {
+    const rows = await this.records
+      .createQueryBuilder('payment')
+      .where('payment.status IN (:...open)', { open: [...OPEN_STATUSES] })
+      .andWhere('payment.provider_ref IS NOT NULL')
+      .andWhere('payment.created_at > :createdAfter', { createdAfter: query.createdAfter })
+      .andWhere('COALESCE(payment.last_synced_at, payment.created_at) < :notSyncedSince', { notSyncedSince: query.notSyncedSince })
+      .orderBy('COALESCE(payment.last_synced_at, payment.created_at)', 'ASC')
+      .limit(query.limit)
+      .getMany();
+    return rows.map(toDomain);
+  }
+
   async insert(payment: Payment): Promise<void> {
     try {
       await this.records.insert(toRecord(payment));

@@ -10,9 +10,11 @@ import { PaymentProvider } from './application/ports/payment-provider';
 import { OutboxRepository, PaymentRepository, WebhookEventRepository } from './application/ports/repositories';
 import { GetPaymentUseCase } from './application/use-cases/get-payment.use-case';
 import { HandleProviderEventUseCase } from './application/use-cases/handle-provider-event.use-case';
+import { ReconcilePaymentsUseCase } from './application/use-cases/reconcile-payments.use-case';
 import { StartPaymentUseCase } from './application/use-cases/start-payment.use-case';
 import { ConfigPlanPricing, OnboardingCompanyActivation, OnboardingCompanyGateway } from './infrastructure/onboarding-company.gateway';
 import { OutboxScheduler } from './infrastructure/outbox.scheduler';
+import { ReconciliationScheduler } from './infrastructure/reconciliation.scheduler';
 import { OutboxRecord } from './infrastructure/persistence/outbox.record';
 import { PaymentRecord } from './infrastructure/persistence/payment.record';
 import { TypeOrmOutboxRepository } from './infrastructure/persistence/typeorm-outbox.repository';
@@ -31,6 +33,8 @@ import { WebhooksController } from './presentation/webhooks.controller';
     StartPaymentUseCase,
     GetPaymentUseCase,
     HandleProviderEventUseCase,
+    ReconcilePaymentsUseCase,
+    ReconciliationScheduler,
     PaymentSynchronizer,
     OutboxDispatcher,
     OutboxScheduler,
@@ -50,6 +54,6 @@ import { WebhooksController } from './presentation/webhooks.controller';
       useFactory: (): PaymentProvider => new MockPaymentProvider(),
     },
   ],
-  exports: [PaymentRepository, WebhookEventRepository, PaymentProvider, OutboxDispatcher],
+  exports: [PaymentRepository, WebhookEventRepository, PaymentProvider, OutboxDispatcher, ReconcilePaymentsUseCase],
 })
 export class PaymentsModule {}

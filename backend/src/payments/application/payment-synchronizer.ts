@@ -33,7 +33,7 @@ export class PaymentSynchronizer {
    * newest version and applies the same provider snapshot again. That is correct because applying a snapshot is
    * idempotent (the state machine ignores what it already knows).
    */
-  async apply(paymentId: string, remote: ProviderPayment): Promise<Payment> {
+  async apply(paymentId: string, remote: ProviderPayment, now: Date = new Date()): Promise<Payment> {
     for (let attempt = 1; ; attempt++) {
       const payment = await this.payments.findById(paymentId);
       if (!payment) throw new Error(`Payment ${paymentId} disappeared while synchronising`);
@@ -43,8 +43,8 @@ export class PaymentSynchronizer {
       }
 
       const alreadyLinked = payment.providerRef === remote.providerRef;
-      payment.attachProviderRef(remote.providerRef);
-      const outcome = payment.applyStatus(remote.status, remote.failureCode);
+      payment.attachProviderRef(remote.providerRef, now);
+      const outcome = payment.applyStatus(remote.status, remote.failureCode, now);
       if (outcome === TransitionOutcome.REJECTED) {
         this.logger.warn(`Ignored stale report for payment ${paymentId}: ${payment.status} -> ${remote.status}`);
       }
@@ -55,7 +55,7 @@ export class PaymentSynchronizer {
       const changedAnything = !alreadyLinked || outcome === TransitionOutcome.APPLIED;
       if (attempt > 1 && !changedAnything) return payment;
 
-      payment.markSynced();
+      payment.markSynced(now);
 
       // Queue "payment succeeded" ONLY at the moment of the transition. A payment can reach SUCCEEDED once (it is final),
       // so this yields exactly one message per payment, however many duplicate reports or racing requests there are.

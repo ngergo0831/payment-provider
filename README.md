@@ -127,6 +127,14 @@ checked over the exact bytes received). A webhook is only a *trigger*: we never 
 payment's real current state. So a duplicate, late, out-of-order or forged message cannot mislead us. An event is marked
 handled only after everything succeeded, so if something fails the provider's retry is processed, not skipped.
 
+### If a webhook is lost
+
+Webhooks are delivered at-least-once *usually*, which is not good enough for money. So once a minute (`RECONCILE_INTERVAL_MS`)
+a job asks the provider about open payments that have been quiet for 2 minutes and applies the real state through the same
+code path as a webhook. A customer who paid is therefore activated within a few minutes even if the webhook never arrives.
+It only looks at payments created in the last 24 hours (older ones are abandoned checkouts), oldest-synced first, 50 at a time.
+One failing payment, or a provider outage, never stops the others; the next run tries again.
+
 ### Trying it from Swagger (mock provider)
 
 Open `/docs`, register, click **Authorize** and paste the token, then:

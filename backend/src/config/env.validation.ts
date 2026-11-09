@@ -58,6 +58,12 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   OUTBOX_POLL_INTERVAL_MS: number = 1000;
+
+  // How often payments that went quiet are compared with the provider (the safety net for lost webhooks). 0 = off.
+  @Transform(({ value }) => (value === '' ? NaN : Number(value)))
+  @IsInt()
+  @Min(0)
+  RECONCILE_INTERVAL_MS: number = 60000;
 }
 
 /**
