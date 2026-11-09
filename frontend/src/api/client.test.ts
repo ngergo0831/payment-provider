@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, NETWORK_ERROR } from './client';
+import { api, ApiError, NETWORK_ERROR, SERVER_UNAVAILABLE } from './client';
 
 const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -60,12 +60,42 @@ describe('api client', () => {
     await expect(api.checkoutConfig()).rejects.toMatchObject({ code: NETWORK_ERROR, status: 0 });
   });
 
-  it('survives a non-JSON error page (a proxy returning 502) with a generic message', async () => {
-    mockFetch(async () => new Response('<html>Bad gateway</html>', { status: 502 }));
+  it.each([502, 503, 504])('treats a proxy %i page (the API is down or restarting) as "service unavailable", not a generic error', async (status) => {
+    mockFetch(async () => new Response('<html>Bad gateway</html>', { status }));
 
-    const error = await api.checkoutConfig().catch((e: unknown) => e);
+    const error = (await api.checkoutConfig().catch((e: unknown) => e)) as ApiError;
 
-    expect(error).toMatchObject({ status: 502, code: 'INTERNAL_ERROR' });
-    expect((error as ApiError).message).not.toContain('html');
+    expect(error).toMatchObject({ status, code: SERVER_UNAVAILABLE });
+    expect(error.unreachable).toBe(true);
+    expect(error.message).toContain('temporarily unavailable');
+    expect(error.message).not.toContain('html');
+  });
+
+  it('counts a dropped connection as unreachable too', async () => {
+    mockFetch(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+
+    expect(((await api.checkoutConfig().catch((e: unknown) => e)) as ApiError).unreachable).toBe(true);
+  });
+
+  it("does NOT call the API's own 503 (payment provider down) unreachable: it has a real message and the API is fine", async () => {
+    mockFetch(async () =>
+      jsonResponse(503, { statusCode: 503, code: 'PAYMENT_PROVIDER_UNAVAILABLE', message: 'The payment service is temporarily unavailable. Nothing was charged.' }),
+    );
+
+    const error = (await api.startPayment('tok').catch((e: unknown) => e)) as ApiError;
+
+    expect(error).toMatchObject({ code: 'PAYMENT_PROVIDER_UNAVAILABLE', unreachable: false });
+    expect(error.message).toContain('Nothing was charged');
+  });
+
+  it('keeps a generic message for other non-JSON failures (a 500 page)', async () => {
+    mockFetch(async () => new Response('<html>oops</html>', { status: 500 }));
+
+    const error = (await api.checkoutConfig().catch((e: unknown) => e)) as ApiError;
+
+    expect(error).toMatchObject({ status: 500, code: 'INTERNAL_ERROR', unreachable: false });
+    expect(error.message).not.toContain('html');
   });
 });

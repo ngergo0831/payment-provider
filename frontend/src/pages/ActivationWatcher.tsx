@@ -49,7 +49,11 @@ export function ActivationWatcher({ session, paymentId, onActive, onPaymentProbl
       <h2>Payment received</h2>
       <p aria-busy="true">Activating your account… this usually takes a few seconds.</p>
 
-      {offline && <p role="alert" className="form-error">Connection lost. Your payment is safe; we keep trying to reach the server.</p>}
+      {offline && (
+        <p role="alert" className="form-error">
+          We can't reach the service right now. Your payment is safe; we keep trying and will continue automatically as soon as it is back.
+        </p>
+      )}
 
       {slow && !offline && (
         <>

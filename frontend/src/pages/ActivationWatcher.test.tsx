@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, NETWORK_ERROR } from '../api/client';
+import { api, ApiError, NETWORK_ERROR, SERVER_UNAVAILABLE } from '../api/client';
 import type { CompanyStatus, OnboardingStatus, Payment, PaymentStatus } from '../api/types';
 import { ActivationWatcher } from './ActivationWatcher';
 
@@ -52,15 +52,26 @@ describe('ActivationWatcher', () => {
     expect(poll).toHaveBeenCalledTimes(1);
   });
 
-  it('tells the user the connection dropped, keeps trying, and recovers by itself', async () => {
+  it.each([
+    ['the browser is offline', new ApiError(0, NETWORK_ERROR, 'Cannot reach the server.')],
+    ['the API is down behind the web server (504)', new ApiError(504, SERVER_UNAVAILABLE, 'The service is temporarily unavailable.')],
+  ])('when %s: says the service cannot be reached, that the payment is safe, keeps trying, and recovers by itself', async (_label, failure) => {
+    vi.spyOn(api, 'onboardingStatus').mockRejectedValueOnce(failure).mockRejectedValueOnce(failure).mockResolvedValue(status('ACTIVE'));
+    const { onActive } = setup();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("We can't reach the service right now. Your payment is safe");
+    await waitFor(() => expect(onActive).toHaveBeenCalled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('does not claim the service is unreachable for an ordinary server error', async () => {
     vi.spyOn(api, 'onboardingStatus')
-      .mockRejectedValueOnce(new ApiError(0, NETWORK_ERROR, 'Cannot reach the server.'))
-      .mockRejectedValueOnce(new ApiError(0, NETWORK_ERROR, 'Cannot reach the server.'))
+      .mockRejectedValueOnce(new ApiError(500, 'INTERNAL_ERROR', 'An unexpected error occurred'))
       .mockResolvedValue(status('ACTIVE'));
     const { onActive } = setup();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Connection lost. Your payment is safe');
     await waitFor(() => expect(onActive).toHaveBeenCalled());
+    expect(screen.queryByText(/can't reach the service/)).not.toBeInTheDocument();
   });
 
   it('says it is taking longer than usual, and "Check again" resumes the payment to make the backend ask the provider', async () => {

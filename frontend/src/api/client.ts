@@ -13,8 +13,15 @@ import type {
 /** Everything goes through one prefix: Vite's dev proxy (and the production reverse proxy) forwards it to the backend. */
 const BASE = '/api';
 
-/** Raised when the server could not be reached at all, so there is no HTTP response to read a code from. */
+/** The browser could not reach the web server at all (offline, server down): there is no HTTP response to read. */
 export const NETWORK_ERROR = 'NETWORK_ERROR';
+/**
+ * The web server answered, but the API behind it did not (a proxy's 502/503/504 page, e.g. the API is restarting).
+ * Our own API always answers with a JSON error envelope, so a gateway status WITHOUT one means "the API is not there".
+ */
+export const SERVER_UNAVAILABLE = 'SERVER_UNAVAILABLE';
+
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 /**
  * The ONE error type the UI deals with. Every failure, whether a validation problem, an outage or a dropped
@@ -23,13 +30,18 @@ export const NETWORK_ERROR = 'NETWORK_ERROR';
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    readonly code: ErrorCode | typeof NETWORK_ERROR,
+    readonly code: ErrorCode | typeof NETWORK_ERROR | typeof SERVER_UNAVAILABLE,
     message: string,
     readonly details: FieldError[] = [],
     readonly requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
+  }
+
+  /** We could not talk to the API at all. Nothing was processed, so it is always safe to try again. */
+  get unreachable(): boolean {
+    return this.code === NETWORK_ERROR || this.code === SERVER_UNAVAILABLE;
   }
 
   /** Field path -> first message, for showing errors next to the inputs. */
@@ -55,7 +67,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, { body, token }:
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, NETWORK_ERROR, 'Cannot reach the server. Check your connection and try again.');
+    throw new ApiError(0, NETWORK_ERROR, 'Cannot reach the server. Check your internet connection and try again.');
   }
 
   const payload: unknown = await response.json().catch(() => null);
@@ -63,6 +75,13 @@ async function request<T>(method: 'GET' | 'POST', path: string, { body, token }:
 
   // The backend's error envelope: { statusCode, code, message, details?, requestId }. A proxy error page is not JSON.
   const error = (payload ?? {}) as Partial<{ code: ErrorCode; message: string; details: FieldError[]; requestId: string }>;
+  if (!error.code && GATEWAY_STATUSES.has(response.status)) {
+    throw new ApiError(
+      response.status,
+      SERVER_UNAVAILABLE,
+      'The service is temporarily unavailable. If you were paying, your payment is safe. Please try again in a moment.',
+    );
+  }
   throw new ApiError(
     response.status,
     error.code ?? 'INTERNAL_ERROR',

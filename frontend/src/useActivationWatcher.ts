@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError, NETWORK_ERROR } from './api/client';
+import { api, ApiError } from './api/client';
 
 export const POLL_INTERVAL_MS = 2000;
 /** After this long without an answer we stop saying "just a moment" and explain that it is taking longer. */
@@ -16,7 +16,7 @@ export type WatchOutcome =
 
 export interface Watch {
   outcome: WatchOutcome;
-  /** The last request could not reach the server; we keep trying. */
+  /** The last request could not reach the API (we are offline, or it is down); we keep trying. */
   offline: boolean;
   slow: boolean;
 }
@@ -61,8 +61,8 @@ export function useActivationWatcher({ token, paymentId, intervalMs = POLL_INTER
       } catch (error) {
         if (cancelled) return;
         if (error instanceof ApiError && error.status === 401) return finish('expired');
-        // Offline or a server hiccup: nothing is lost (the payment is safe on the server), so keep asking.
-        setWatch((w) => ({ ...w, offline: error instanceof ApiError && error.code === NETWORK_ERROR, slow: Date.now() - startedAt >= slowAfterMs }));
+        // We cannot reach the API (offline, or it is down/restarting): nothing is lost, the payment is safe, so keep asking.
+        setWatch((w) => ({ ...w, offline: error instanceof ApiError && error.unreachable, slow: Date.now() - startedAt >= slowAfterMs }));
       }
       timer = setTimeout(poll, intervalMs);
     }
