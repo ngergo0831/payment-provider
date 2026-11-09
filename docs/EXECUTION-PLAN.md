@@ -110,7 +110,7 @@ Rules:
 
 | Done | # | Task | Commit message |
 |---|---|---|---|
-| [ ] | 25 | Vite and React skeleton, typed API client, dev proxy | `feat(frontend): scaffold app` |
+| [x] | 25 | Vite and React skeleton, typed API client, dev proxy | `feat(frontend): scaffold app` |
 | [ ] | 26 | Register page with a **"Fill sample data"** helper and inline field errors | `feat(frontend): add register page` |
 | [ ] | 27 | Payment step: Stripe Elements, plus mock panel when no keys | `feat(frontend): add payment step` |
 | [ ] | 28 | Activation watcher (polling, slow/offline messages) and success screen | `feat(frontend): add activation status` |
