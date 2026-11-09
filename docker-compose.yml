@@ -1,9 +1,15 @@
-# Local development infrastructure.
-#   docker compose up -d        start Postgres in the background
-#   docker compose ps           shows "healthy" once it accepts connections
-#   docker compose down         stop (data is kept)      |   docker compose down -v   stop AND wipe the data
+# The whole system:
+#   docker compose up -d --build     database + API + web app   ->  http://localhost:8080   (Swagger: http://localhost:3000/docs)
+#   docker compose ps                shows "healthy" once each service is ready
+#   docker compose logs -f backend   follow the API's logs
+#   docker compose down              stop (data is kept)      |   docker compose down -v   stop AND wipe the data
 #
-# Settings come from a `.env` file next to this one (copy `.env.example`); every value has a dev default.
+# Works with no configuration at all: it uses the built-in MOCK payment provider, so no account or keys are needed.
+# To use real Stripe (test mode), put the keys in a `.env` file next to this one (see `.env.example`) and run:
+#   docker compose --profile stripe up -d --build
+# The `stripe` profile adds the Stripe CLI, which forwards Stripe's webhooks to the API.
+#
+# Only the database is needed for working on the code (`docker compose up -d postgres`, then `npm run start:dev` in backend/).
 
 services:
   postgres:
@@ -30,6 +36,60 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # `development` on purpose: the mock provider and the example JWT secret are REFUSED when this is `production`.
+      # For a production-style run set NODE_ENV=production together with PAYMENT_PROVIDER=stripe and a real JWT_SECRET.
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      # Inside the compose network the database is reached by its service name, not localhost.
+      DATABASE_URL: postgres://${POSTGRES_USER:-payments}:${POSTGRES_PASSWORD:-payments}@postgres:5432/${POSTGRES_DB:-payments}
+      # Public example value, fine for a local demo. Generate a real one for anything else (see backend/.env.example).
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-it-must-be-32+chars}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PLAN_PRICE_MINOR: ${PLAN_PRICE_MINOR:-4900}
+      PLAN_CURRENCY: ${PLAN_CURRENCY:-USD}
+    ports:
+      # Reachable from this machine only: Swagger, and the Stripe CLI running on the host.
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
+  # Opt-in (`--profile stripe`): receives Stripe's webhooks and forwards them to the API, so payments made in Stripe's
+  # test mode activate accounts on a laptop without a public URL. The signing secret it uses is the one you put in
+  # STRIPE_WEBHOOK_SECRET (see the README, "Real Stripe").
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    profiles: ["stripe"]
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # The CLI reads its key from here. Empty = it stops with a clear "not logged in" message.
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    command:
+      - listen
+      - --forward-to
+      - backend:3000/webhooks/payments
+      - --events
+      - payment_intent.succeeded,payment_intent.payment_failed,payment_intent.processing,payment_intent.requires_action,payment_intent.canceled
 
 volumes:
   pgdata:

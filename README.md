@@ -5,20 +5,40 @@
 
 A focused slice of a self-serve B2B onboarding flow, going deep on one integration: **Stripe payments**.
 
-**Status:** work in progress, built one small task per commit. See [docs/EXECUTION-PLAN.md](docs/EXECUTION-PLAN.md) for the
-task list and current progress.
+Built one small task per commit; the task list is in [docs/EXECUTION-PLAN.md](docs/EXECUTION-PLAN.md).
 
-## Planned stack
+## Stack
 
 NestJS · PostgreSQL · TypeORM (migrations) · JWT · Stripe (PaymentIntents, with a mock provider for running without keys) ·
-React · Docker Compose · Swagger
+React (Vite) · Docker Compose · Swagger
 
 ## Running it
 
-Requires Node.js 22.12 or newer. Instructions grow as each part is built.
+### Everything at once (Docker)
+
+Requires Docker Desktop. From the repository root:
 
 ```bash
-docker compose up -d   # from the repository root: the database (see "Database" below)
+docker compose up -d --build   # database + API + web app; the first build takes a few minutes
+docker compose ps              # wait until every service says (healthy)
+```
+
+| What | Where |
+|---|---|
+| The web app (register, pay, activation) | http://localhost:8080 |
+| Swagger UI / OpenAPI JSON | http://localhost:3000/docs · http://localhost:3000/docs-json |
+| The API directly | http://localhost:3000 (the web app reaches it as `/api/*`) |
+
+It needs **no configuration**: without Stripe keys it uses the built-in mock provider, and the payment screen shows a demo
+panel (pay, decline, 3-D Secure, slow bank, lost webhook, provider outage). To use real Stripe, see "Real Stripe" below.
+`docker compose down` stops everything (data is kept); `docker compose down -v` also wipes the database.
+
+### For development
+
+Requires Node.js 22.12 or newer.
+
+```bash
+docker compose up -d postgres   # from the repository root: just the database (see "Database" below)
 cd backend
 npm install
 cp .env.example .env   # required: DATABASE_URL has no default (see "Configuration")
@@ -27,6 +47,11 @@ npm run start:dev      # API on http://localhost:3000  (try GET /health)
 npm test               # unit tests: fast, need no database
 npm run test:e2e       # end-to-end tests: need the database; each file uses its own throw-away DB
 npm run lint           # type-check source and tests
+
+cd ../frontend
+npm install
+npm run dev            # web app on http://localhost:5173, forwarding /api to the API on port 3000
+npm test               # frontend tests (Vitest + Testing Library)
 ```
 
 `GET /health` answers `200` when the database is reachable and `503` when it is not.

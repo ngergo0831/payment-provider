@@ -119,7 +119,7 @@ Rules:
 
 | Done | # | Task | Commit message |
 |---|---|---|---|
-| [ ] | 29 | Dockerfiles, nginx, full `docker compose up` | `chore: containerize backend and frontend` |
+| [x] | 29 | Dockerfiles, nginx, full `docker compose up` | `chore: containerize backend and frontend` |
 | [ ] | 30 | Stripe CLI profile and a real test-mode walkthrough (needs Stripe keys) | `chore: add Stripe CLI profile` |
 | [ ] | 31 | `DESIGN.md`, `PRESENTATION.md` (including the AI-usage slide the assignment requires), final README | `docs: add design and presentation` |
 
