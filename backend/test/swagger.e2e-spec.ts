@@ -9,7 +9,7 @@ describe('Swagger / OpenAPI', () => {
   let t: TestApp;
 
   beforeAll(async () => {
-    t = await createTestApp(setupSwagger);
+    t = await createTestApp({ beforeInit: setupSwagger });
   });
   afterAll(async () => {
     await t.close();

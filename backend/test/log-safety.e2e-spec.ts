@@ -40,7 +40,7 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
   };
 
   beforeAll(async () => {
-    t = await createTestApp(undefined, {}, recorder);
+    t = await createTestApp({ logger: recorder });
   });
   afterAll(async () => {
     await t.close();

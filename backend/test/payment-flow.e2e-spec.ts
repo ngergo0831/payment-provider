@@ -4,9 +4,8 @@ import { ActivateCompanyUseCase } from '../src/onboarding/application/activate-c
 import { OutboxDispatcher } from '../src/payments/application/outbox-dispatcher';
 import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
 import { MockOutcome, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
+import { companyStatus, registerCompany, waitForActivation } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
-
-let counter = 0;
 
 /** register -> pay -> (provider says paid) -> message delivered -> company ACTIVE */
 describe('the full payment flow (real HTTP + PostgreSQL)', () => {
@@ -28,19 +27,15 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
   afterEach(() => jest.restoreAllMocks());
 
   const newAdmin = async () => {
-    const res = await t.http
-      .post('/auth/register')
-      .send({ email: `flow${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-      .expect(201);
-    const auth = { Authorization: `Bearer ${res.body.accessToken}` };
+    const company = await registerCompany(t);
     return {
-      companyId: res.body.company.id as string,
-      start: () => t.http.post('/payments').set(auth),
-      companyStatus: async () => (await t.http.get('/onboarding/status').set(auth).expect(200)).body.company.status as string,
+      companyId: company.companyId,
+      start: () => t.http.post('/payments').set(company.auth),
+      companyStatus: () => companyStatus(t, company),
       outbox: () =>
         queryDatabase<{ id: string; processed_at: Date | null; attempts: number; last_error: string | null; available_at: Date }>(
           t.databaseUrl,
-          `SELECT id, processed_at, attempts, last_error, available_at FROM outbox_messages WHERE payload->>'companyId' = '${res.body.company.id}'`,
+          `SELECT id, processed_at, attempts, last_error, available_at FROM outbox_messages WHERE payload->>'companyId' = '${company.companyId}'`,
         ),
     };
   };
@@ -146,25 +141,15 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
 
   describe('the background timer', () => {
     it('delivers by itself when the timer is on: no manual dispatch needed', async () => {
-      const timed = await createTestApp(undefined, { OUTBOX_POLL_INTERVAL_MS: '50' });
+      const timed = await createTestApp({ env: { OUTBOX_POLL_INTERVAL_MS: '50' } });
       try {
         const timedProvider = timed.app.get(PaymentProvider) as MockPaymentProvider;
-        const res = await timed.http
-          .post('/auth/register')
-          .send({ email: `timer${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-          .expect(201);
-        const auth = { Authorization: `Bearer ${res.body.accessToken}` };
-        const start = await timed.http.post('/payments').set(auth).expect(200);
+        const company = await registerCompany(timed);
+        const start = await timed.http.post('/payments').set(company.auth).expect(200);
         timedProvider.simulate(start.body.payment.providerRef, MockOutcome.SUCCEED);
-        await timed.http.post('/payments').set(auth).expect(200);
+        await timed.http.post('/payments').set(company.auth).expect(200);
 
-        let status = 'PENDING_PAYMENT';
-        for (let i = 0; i < 40 && status !== 'ACTIVE'; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          status = (await timed.http.get('/onboarding/status').set(auth)).body.company.status;
-        }
-
-        expect(status).toBe('ACTIVE');
+        expect(await waitForActivation(timed, company)).toBe('ACTIVE');
       } finally {
         await timed.close();
       }

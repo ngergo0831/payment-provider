@@ -36,7 +36,7 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
   describe('PAYMENT_PROVIDER=stripe', () => {
     let t: TestApp;
     beforeAll(async () => {
-      t = await createTestApp(undefined, STRIPE_ENV);
+      t = await createTestApp({ env: STRIPE_ENV });
     });
     afterAll(async () => {
       await t.close();

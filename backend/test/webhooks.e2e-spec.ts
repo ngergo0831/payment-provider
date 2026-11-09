@@ -2,9 +2,8 @@ import { OutboxDispatcher } from '../src/payments/application/outbox-dispatcher'
 import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
 import { MOCK_WEBHOOK_SIGNATURE, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
 import { buildOpenApiDocument } from '../src/swagger.setup';
+import { companyStatus, registerCompany } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
-
-let counter = 0;
 
 describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
   let t: TestApp;
@@ -23,16 +22,12 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
   afterEach(() => provider.setOutage(false));
 
   const newAdmin = async () => {
-    const res = await t.http
-      .post('/auth/register')
-      .send({ email: `hook${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-      .expect(201);
-    const auth = { Authorization: `Bearer ${res.body.accessToken}` };
+    const company = await registerCompany(t);
     return {
-      companyId: res.body.company.id as string,
-      start: () => t.http.post('/payments').set(auth),
-      payment: (id: string) => t.http.get(`/payments/${id}`).set(auth),
-      companyStatus: async () => (await t.http.get('/onboarding/status').set(auth).expect(200)).body.company.status as string,
+      companyId: company.companyId,
+      start: () => t.http.post('/payments').set(company.auth),
+      payment: (id: string) => t.http.get(`/payments/${id}`).set(company.auth),
+      companyStatus: () => companyStatus(t, company),
     };
   };
   const simulate = (providerRef: string, outcome: string, deliverWebhook?: boolean) =>
@@ -197,7 +192,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
 
   describe('production safety', () => {
     it('the app REFUSES to start in production with the mock provider (its webhook signature is public), and leaves nothing behind', async () => {
-      await expect(createTestApp(undefined, { NODE_ENV: 'production' })).rejects.toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
+      await expect(createTestApp({ env: { NODE_ENV: 'production' } })).rejects.toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
     });
   });
 

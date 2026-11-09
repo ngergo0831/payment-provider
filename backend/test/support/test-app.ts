@@ -12,11 +12,11 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-// Connects to the maintenance database `postgres` of the dev container from docker-compose.yml
-// (the `payments` user is its superuser, so it may create databases).
 /** Known to tests so they can mint tokens exactly like the app does (including deliberately flawed ones). */
 export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-at-least-32-chars';
 
+// Connects to the maintenance database `postgres` of the dev container from docker-compose.yml
+// (the `payments` user is its superuser, so it may create databases).
 const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://payments:payments@localhost:5432/postgres';
 
 async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
@@ -36,15 +36,19 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
   }
 }
 
+export interface TestAppOptions {
+  /** Runs before init(), e.g. to mount Swagger exactly like main.ts does. */
+  beforeInit?: (app: INestApplication) => void;
+  /** Environment overrides on top of the test defaults. */
+  env?: Record<string, string>;
+  logger?: LogLevel[] | LoggerService;
+}
+
 /**
  * Boots the REAL application (real modules, pipes, filter, TypeORM, migrations) against its own freshly
  * created database, so every test file starts from an empty schema and cannot disturb dev data or other files.
  */
-export async function createTestApp(
-  beforeInit?: (app: INestApplication) => void,
-  env: Record<string, string> = {},
-  logger: LogLevel[] | LoggerService = ['error'],
-): Promise<TestApp> {
+export async function createTestApp({ beforeInit, env = {}, logger = ['error'] }: TestAppOptions = {}): Promise<TestApp> {
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
 

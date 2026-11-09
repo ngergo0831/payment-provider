@@ -4,9 +4,9 @@ import { PaymentProvider } from '../src/payments/application/ports/payment-provi
 import { PaymentRepository } from '../src/payments/application/ports/repositories';
 import { ReconcilePaymentsUseCase } from '../src/payments/application/use-cases/reconcile-payments.use-case';
 import { MockOutcome, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
+import { companyStatus, registerCompany, waitForActivation } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
-let counter = 0;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 describe('reconciliation (real PostgreSQL)', () => {
@@ -21,17 +21,6 @@ describe('reconciliation (real PostgreSQL)', () => {
     await t.close();
   });
 
-  const register = async (app: TestApp = t) => {
-    const res = await app.http
-      .post('/auth/register')
-      .send({ email: `recon${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-      .expect(201);
-    return {
-      companyId: res.body.company.id as string,
-      auth: { Authorization: `Bearer ${res.body.accessToken}` },
-    };
-  };
-
   describe('which payments are due (the real query)', () => {
     // Its own database: the seeded rows point at provider references that do not exist, so they must not leak into other tests.
     let q: TestApp;
@@ -44,7 +33,7 @@ describe('reconciliation (real PostgreSQL)', () => {
 
     /** Inserts a payment row with exact timestamps and returns its id. */
     const seed = async (columns: { status?: string; providerRef?: string | null; createdMinutesAgo: number; syncedMinutesAgo?: number }) => {
-      const { companyId } = await register(q);
+      const { companyId } = await registerCompany(q);
       const id: string = randomUUID();
       const ref = columns.providerRef === undefined ? `pi_${id}` : columns.providerRef;
       await queryDatabase(
@@ -101,7 +90,8 @@ describe('reconciliation (real PostgreSQL)', () => {
 
   describe('recovering from a lost webhook, end to end', () => {
     it('finds the success on its own, queues the message, and the company is activated', async () => {
-      const { auth } = await register();
+      const company = await registerCompany(t);
+      const { auth } = company;
       const { body } = await t.http.post('/payments').set(auth).expect(200);
       provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED); // the webhook never arrives
       // Make it look like it has been quiet for a while.
@@ -114,12 +104,11 @@ describe('reconciliation (real PostgreSQL)', () => {
       const payment = (await t.http.get(`/payments/${body.payment.id}`).set(auth).expect(200)).body;
       expect(payment.status).toBe('SUCCEEDED');
       await t.app.get(OutboxDispatcher).dispatchDue();
-      const status = await t.http.get('/onboarding/status').set(auth).expect(200);
-      expect(status.body.company.status).toBe('ACTIVE');
+      expect(await companyStatus(t, company)).toBe('ACTIVE');
     });
 
     it('survives a provider outage and recovers on the next run', async () => {
-      const { auth } = await register();
+      const { auth } = await registerCompany(t);
       const { body } = await t.http.post('/payments').set(auth).expect(200);
       provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
       await queryDatabase(t.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
@@ -138,25 +127,15 @@ describe('reconciliation (real PostgreSQL)', () => {
 
   describe('the background timers', () => {
     it('with both timers on, a payment whose webhook was lost activates the company with no manual step', async () => {
-      const timed = await createTestApp(undefined, { RECONCILE_INTERVAL_MS: '50', OUTBOX_POLL_INTERVAL_MS: '50' });
+      const timed = await createTestApp({ env: { RECONCILE_INTERVAL_MS: '50', OUTBOX_POLL_INTERVAL_MS: '50' } });
       try {
         const timedProvider = timed.app.get(PaymentProvider) as MockPaymentProvider;
-        const res = await timed.http
-          .post('/auth/register')
-          .send({ email: `timer${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-          .expect(201);
-        const auth = { Authorization: `Bearer ${res.body.accessToken}` };
-        const { body } = await timed.http.post('/payments').set(auth).expect(200);
+        const company = await registerCompany(timed);
+        const { body } = await timed.http.post('/payments').set(company.auth).expect(200);
         timedProvider.simulate(body.payment.providerRef, MockOutcome.SUCCEED); // webhook lost
         await queryDatabase(timed.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
 
-        let status = 'PENDING_PAYMENT';
-        for (let i = 0; i < 60 && status !== 'ACTIVE'; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          status = (await timed.http.get('/onboarding/status').set(auth)).body.company.status;
-        }
-
-        expect(status).toBe('ACTIVE');
+        expect(await waitForActivation(timed, company)).toBe('ACTIVE');
       } finally {
         await timed.close();
       }

@@ -1,9 +1,8 @@
 import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
 import { MockOutcome, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
 import { buildOpenApiDocument } from '../src/swagger.setup';
+import { companyStatus, registerCompany } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
-
-let counter = 0;
 
 describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => {
   let t: TestApp;
@@ -20,17 +19,13 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
 
   /** A registered company with its token, plus shortcuts for the calls under test. */
   const newAdmin = async () => {
-    const res = await t.http
-      .post('/auth/register')
-      .send({ email: `pay${++counter}@acme.example`, fullName: 'Jane', company: { name: 'Acme', country: 'HU' } })
-      .expect(201);
-    const auth = { Authorization: `Bearer ${res.body.accessToken}` };
+    const company = await registerCompany(t);
     return {
-      companyId: res.body.company.id as string,
-      auth,
-      start: () => t.http.post('/payments').set(auth),
-      get: (id: string) => t.http.get(`/payments/${id}`).set(auth),
-      paymentRows: () => queryDatabase(t.databaseUrl, `SELECT * FROM payments WHERE company_id = '${res.body.company.id}'`),
+      ...company,
+      start: () => t.http.post('/payments').set(company.auth),
+      get: (id: string) => t.http.get(`/payments/${id}`).set(company.auth),
+      companyStatus: () => companyStatus(t, company),
+      paymentRows: () => queryDatabase(t.databaseUrl, `SELECT * FROM payments WHERE company_id = '${company.companyId}'`),
     };
   };
 
@@ -59,8 +54,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ id: body.payment.id, provider: 'mock', provider_ref: body.payment.providerRef, status: 'CREATED' });
 
-      const status = await t.http.get('/onboarding/status').set(admin.auth).expect(200);
-      expect(status.body.company.status).toBe('PENDING_PAYMENT');
+      expect(await admin.companyStatus()).toBe('PENDING_PAYMENT');
     });
 
     it('exposes nothing beyond the documented fields', async () => {
