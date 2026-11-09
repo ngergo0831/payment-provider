@@ -64,6 +64,23 @@ The schema is owned by migrations only (`synchronize` is off). Pending migration
 starts. From `backend/`: `npm run migration:show` lists them, `migration:run` applies them, `migration:revert` undoes the
 last one.
 
+## Registering a company
+
+`POST /auth/register` creates a company and its first admin in one step. There is no password or login in this slice.
+The company starts as `PENDING_PAYMENT` and becomes `ACTIVE` once it has paid. Try it in Swagger (`/docs`), where the
+request is pre-filled; change the email to register again.
+
+```bash
+curl -X POST http://localhost:3000/auth/register -H 'content-type: application/json' -d '{
+  "email": "jane.doe@acme.example",
+  "fullName": "Jane Doe",
+  "company": { "name": "Acme Ltd", "country": "HU", "taxId": "HU12345678" }
+}'
+```
+
+Emails are stored trimmed and lower-case (a second registration differing only in case is a `409`). Unknown fields
+and invalid values return `422` listing every problem; see "Error format" below.
+
 ## Error format
 
 Every failing request returns the same JSON shape. Clients branch on `code`, never on `message`.
