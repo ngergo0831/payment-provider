@@ -83,7 +83,7 @@ Rules:
 
 | Done | # | Task | What you'll learn | Commit message |
 |---|---|---|---|---|
-| [ ] | 8 | `Company` and `User` entities, **migration 1**, repository ports and TypeORM adapters | Ports and adapters; why use cases don't import TypeORM | `feat: add company and user persistence` |
+| [x] | 8 | `Company` and `User` entities, **migration 1**, repository ports and TypeORM adapters, architecture test, ADR 0001 | Ports and adapters; why use cases do not import TypeORM; database-enforced rules | `feat: add company and user persistence` |
 | [ ] | 9 | `POST /auth/register`: validated DTOs, company + admin created in one transaction, duplicate email returns 409, sample payload in Swagger | Validation vs. database constraint; transactions | `feat: add minimal registration` |
 | [ ] | 10 | JWT issued on register, JWT guard, `@CurrentUser`, `GET /onboarding/status` (companies start `PENDING_PAYMENT`) | JWT claims and guards; tenant scoping starts here | `feat: add JWT and onboarding status` |
 
@@ -92,8 +92,8 @@ Rules:
 | Done | # | Task | What you'll learn | Commit message |
 |---|---|---|---|---|
 | [ ] | 11 | `Money` value object: integer minor units, currency exponent table, formatting-free | Why floats and "always 2 decimals" are bugs waiting to happen | `feat: add money value object` |
-| [ ] | 12 | `Payment` entity and state machine (with a `version` field), pure and unit-tested, no DB, no Nest | The core rule: illegal transitions can't corrupt state | `feat: add payment state machine` |
-| [ ] | 13 | **Migration 2**: `payments` (partial unique index, version column) and `webhook_events` + repositories with optimistic locking | Database-enforced guarantees against double charging and lost updates | `feat: add payment persistence` |
+| [ ] | 12 | `Payment` as a **pure domain class** (no ORM decorators) with its state machine and a `version` field, unit-tested, no DB, no Nest | The core rule: illegal transitions can't corrupt state | `feat: add payment state machine` |
+| [ ] | 13 | **Migration 2**: `payments` (partial unique index, version column) and `webhook_events`; a separate **persistence model + mapper** for `Payment`, repositories with optimistic locking (ADR 0001, option B) | Database-enforced guarantees against double charging and lost updates | `feat: add payment persistence` |
 | [ ] | 14 | `PaymentProvider` **contract**, `MockPaymentProvider`, and a shared **contract test suite** (ADR: provider port) | Designing an integration boundary; testing adapters against one spec | `feat: add payment provider port and mock` |
 | [ ] | 15 | `StartPayment` use case: `POST /payments` and `GET /payments/:id`. Safe under concurrent clicks, handles a provider outage | Persist-intent-first; provider idempotency keys | `feat: start and resume payments` |
 | [ ] | 16 | Client `Idempotency-Key` header: **migration 3** `idempotency_keys`, replay stored response, reject key reuse with a different body | How real payment APIs make retries safe | `feat: add idempotency keys` |

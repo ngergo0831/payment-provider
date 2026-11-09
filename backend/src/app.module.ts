@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { configuration } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 /** Root module. Feature modules (auth, onboarding, payments) are imported here as they are built. */
 @Module({
@@ -11,6 +12,7 @@ import { HealthModule } from './health/health.module';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     DatabaseModule,
     HealthModule,
+    OnboardingModule,
   ],
 })
 export class AppModule {}

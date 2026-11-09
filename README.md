@@ -89,4 +89,5 @@ real cause is logged server-side and never sent to the client.
 |---|---|
 | `assignment.txt` | The original take-home assignment |
 | `docs/EXECUTION-PLAN.md` | Step-by-step build plan, one task per commit |
+| `docs/adr/` | Architecture decision records: why the code is shaped the way it is |
 | `backend/` | NestJS API |
