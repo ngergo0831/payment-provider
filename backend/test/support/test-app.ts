@@ -55,10 +55,21 @@ export async function createTestApp({ beforeInit, env = {}, logger = ['error'] }
   const databaseUrl = new URL(ADMIN_URL);
   databaseUrl.pathname = `/${dbName}`;
 
+  // EVERY setting the app reads is stated here. The app also loads backend/.env, and real environment variables win over
+  // it, so anything left out would silently come from the developer's own .env (e.g. their Stripe keys, which turned
+  // the mock-provider tests into failures). A test that needs something else says so through `env`.
   Object.assign(process.env, {
     NODE_ENV: 'test',
+    PORT: '3000',
     DATABASE_URL: databaseUrl.toString(),
     JWT_SECRET: TEST_JWT_SECRET,
+    JWT_EXPIRES_IN: '24h',
+    PLAN_PRICE_MINOR: '4900',
+    PLAN_CURRENCY: 'USD',
+    PAYMENT_PROVIDER: 'mock',
+    STRIPE_SECRET_KEY: '',
+    STRIPE_PUBLISHABLE_KEY: '',
+    STRIPE_WEBHOOK_SECRET: '',
     // No background timers in tests: they trigger delivery and reconciliation themselves, so results are deterministic.
     OUTBOX_POLL_INTERVAL_MS: '0',
     RECONCILE_INTERVAL_MS: '0',
