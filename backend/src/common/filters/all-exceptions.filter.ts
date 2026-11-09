@@ -15,6 +15,10 @@ const STATUS_BY_KIND: Record<ErrorKind, HttpStatus> = {
   [ErrorKind.UNAUTHENTICATED]: HttpStatus.UNAUTHORIZED,
   [ErrorKind.NOT_FOUND]: HttpStatus.NOT_FOUND,
   [ErrorKind.CONFLICT]: HttpStatus.CONFLICT,
+  // The provider is down or slow: tell the client to retry shortly.
+  [ErrorKind.PROVIDER_UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
+  // The provider rejected OUR request (bad key, bad contract): not fixable by the client. 502 = "bad gateway".
+  [ErrorKind.PROVIDER_FAILURE]: HttpStatus.BAD_GATEWAY,
 };
 
 /** Framework-raised errors (guards, unknown routes, malformed JSON) get a stable code too. */
