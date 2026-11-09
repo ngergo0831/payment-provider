@@ -9,7 +9,8 @@ import type { Session } from '../session';
 interface Props {
   session: Session;
   /** The payment went through on the customer's side; what remains is waiting for the company to be activated. */
-  onSubmitted: () => void;
+  /** Receives the payment id when there is one, so the watcher can also notice a payment that fails afterwards. */
+  onSubmitted: (paymentId?: string) => void;
 }
 
 type State =
@@ -35,7 +36,7 @@ export function PaymentStep({ session, onSubmitted }: Props) {
     try {
       config = await api.checkoutConfig();
       const checkout = await api.startPayment(session.token);
-      if (SUBMITTED.has(checkout.payment.status)) onSubmittedRef.current();
+      if (SUBMITTED.has(checkout.payment.status)) onSubmittedRef.current(checkout.payment.id);
       else setState({ phase: 'ready', config, checkout });
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
@@ -80,9 +81,9 @@ export function PaymentStep({ session, onSubmitted }: Props) {
       {payment.status === 'REQUIRES_ACTION' && <p className="hint">Your bank needs to verify this payment. Continue below to complete it.</p>}
 
       {config.provider === 'stripe' && config.publishableKey && clientSecret ? (
-        <StripeCheckout publishableKey={config.publishableKey} clientSecret={clientSecret} onSubmitted={onSubmitted} />
+        <StripeCheckout publishableKey={config.publishableKey} clientSecret={clientSecret} onSubmitted={() => onSubmitted(payment.id)} />
       ) : config.provider === 'mock' && payment.providerRef ? (
-        <MockCheckout providerRef={payment.providerRef} onSubmitted={onSubmitted} onNeedsAttention={() => void load()} />
+        <MockCheckout providerRef={payment.providerRef} onSubmitted={() => onSubmitted(payment.id)} onNeedsAttention={() => void load()} />
       ) : (
         <p role="alert" className="form-error">Payments are not available right now.</p>
       )}

@@ -1,39 +1,63 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { ActivationWatcher } from './pages/ActivationWatcher';
 import { PaymentStep } from './pages/PaymentStep';
 import { RegisterPage } from './pages/RegisterPage';
+import { SuccessScreen } from './pages/SuccessScreen';
 import { clearSession, loadSession, saveSession, type Session } from './session';
+
+/** Where the admin is in onboarding. (A reload resumes at `payment`: the backend works out the real state.) */
+type Step = { name: 'payment' } | { name: 'activating'; paymentId?: string } | { name: 'done' };
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
-  const [submitted, setSubmitted] = useState(false);
+  const [step, setStep] = useState<Step>({ name: 'payment' });
+  const [notice, setNotice] = useState<string>();
 
-  function onRegistered(next: Session) {
+  const onRegistered = (next: Session) => {
     saveSession(next);
+    setNotice(undefined);
+    setStep({ name: 'payment' });
     setSession(next);
-  }
+  };
 
-  function signOut() {
+  const signOut = useCallback((reason?: string) => {
     clearSession();
     setSession(null);
-    setSubmitted(false);
-  }
+    setNotice(reason);
+  }, []);
+
+  // Stable callbacks: the watcher lists them as effect dependencies.
+  const onActive = useCallback(() => setStep({ name: 'done' }), []);
+  const backToPayment = useCallback(() => setStep({ name: 'payment' }), []);
+  const onSessionExpired = useCallback(() => signOut('Your session expired. Please register again.'), [signOut]);
 
   return (
     <main>
       <header>
         <h1>Payment Service</h1>
         {session && (
-          <button type="button" className="link" onClick={signOut}>
+          <button type="button" className="link" onClick={() => signOut()}>
             Start over
           </button>
         )}
       </header>
+
+      {notice && <p role="status" className="hint">{notice}</p>}
+
       {!session ? (
         <RegisterPage onRegistered={onRegistered} />
-      ) : submitted ? (
-        <p>Payment submitted. Activating your account…</p>
+      ) : step.name === 'payment' ? (
+        <PaymentStep session={session} onSubmitted={(paymentId) => setStep({ name: 'activating', paymentId })} />
+      ) : step.name === 'activating' ? (
+        <ActivationWatcher
+          session={session}
+          paymentId={step.paymentId}
+          onActive={onActive}
+          onPaymentProblem={backToPayment}
+          onSessionExpired={onSessionExpired}
+        />
       ) : (
-        <PaymentStep session={session} onSubmitted={() => setSubmitted(true)} />
+        <SuccessScreen session={session} />
       )}
     </main>
   );
