@@ -1,0 +1,9 @@
+# One line-ending rule for everyone, regardless of OS or each machine's core.autocrlf:
+# text files are stored AND checked out with LF. Overrides the Windows autocrlf default.
+* text=auto eol=lf
+
+# Binary files are never converted
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
