@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import type { INestApplication, LoggerService, LogLevel } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import pg from 'pg';
 import request from 'supertest';
+import { AppLogger } from '../../src/common/logging/app-logger';
+import { LogSink } from '../../src/common/logging/log-sink';
 
 export interface TestApp {
   app: INestApplication;
@@ -41,14 +43,15 @@ export interface TestAppOptions {
   beforeInit?: (app: INestApplication) => void;
   /** Environment overrides on top of the test defaults. */
   env?: Record<string, string>;
-  logger?: LogLevel[] | LoggerService;
+  /** Where log records go instead of the console, e.g. memory, to inspect them. The real AppLogger still filters and redacts. */
+  logSink?: LogSink;
 }
 
 /**
  * Boots the REAL application (real modules, pipes, filter, TypeORM, migrations) against its own freshly
  * created database, so every test file starts from an empty schema and cannot disturb dev data or other files.
  */
-export async function createTestApp({ beforeInit, env = {}, logger = ['error'] }: TestAppOptions = {}): Promise<TestApp> {
+export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOptions = {}): Promise<TestApp> {
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
 
@@ -71,6 +74,9 @@ export async function createTestApp({ beforeInit, env = {}, logger = ['error'] }
     STRIPE_PUBLISHABLE_KEY: '',
     STRIPE_WEBHOOK_SECRET: '',
     // No background timers in tests: they trigger delivery and reconciliation themselves, so results are deterministic.
+    // Quiet by default: only errors reach the test output. A test that inspects logs raises it through `env`.
+    LOG_LEVEL: 'error',
+    LOG_FORMAT: 'text',
     OUTBOX_POLL_INTERVAL_MS: '0',
     RECONCILE_INTERVAL_MS: '0',
     ...env,
@@ -85,8 +91,11 @@ export async function createTestApp({ beforeInit, env = {}, logger = ['error'] }
     const { AppModule } = await import('../../src/app.module');
     const { configureApp } = await import('../../src/app.setup');
 
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication({ rawBody: true, logger });
+    const builder = Test.createTestingModule({ imports: [AppModule] });
+    if (logSink) builder.overrideProvider(LogSink).useValue(logSink);
+    const moduleRef = await builder.compile();
+    app = moduleRef.createNestApplication({ rawBody: true, bufferLogs: true });
+    app.useLogger(app.get(AppLogger)); // exactly like main.ts
     configureApp(app);
     // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
     beforeInit?.(app);

@@ -1,5 +1,7 @@
 import { plainToInstance, Transform } from 'class-transformer';
 import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, ValidateIf, validateSync } from 'class-validator';
+import { LogFormat } from '../common/logging/console-log-sink';
+import { LogLevelName } from '../common/logging/app-logger';
 import { InvalidMoneyError, Money } from '../payments/domain/money';
 
 /** Every example secret in this repository starts with this, so production can refuse them. */
@@ -30,6 +32,14 @@ export enum Environment {
 export class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment = Environment.Development;
+
+  // How much to log: error < warn < log (default: what happened) < debug (also routine reads and provider call timings).
+  @IsEnum(LogLevelName)
+  LOG_LEVEL: LogLevelName = LogLevelName.Log;
+
+  // `text` for a terminal; `json` (one object per line) for log platforms such as CloudWatch, which query by field.
+  @IsEnum(LogFormat)
+  LOG_FORMAT: LogFormat = LogFormat.Text;
 
   // Decorators are evaluated bottom-up, and we report only the first failure per variable, so for every number the
   // most fundamental rule (@IsInt) goes LAST: "abc" then reads "must be an integer", not "must not be less than 1".

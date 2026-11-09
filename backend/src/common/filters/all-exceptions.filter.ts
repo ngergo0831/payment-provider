@@ -96,13 +96,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private log(exception: unknown, statusCode: number, request: RequestWithId): void {
-    const context = `[${request.id}] ${request.method} ${request.url} -> ${statusCode}`;
-    const isExpectedFailure = exception instanceof DomainException || isClientHttpError(exception);
+    // The path only: the query string can carry personal data (?email=...).
+    const context = `[${request.id}] ${request.method} ${request.path} -> ${statusCode}`;
 
-    if (isExpectedFailure) {
-      // Already classified and handled: one line, no stack trace, so real problems stay visible in the noise.
-      this.logger.warn(`${context} ${(exception as Error).message}`);
+    if (exception instanceof DomainException) {
+      // Our own message, written by us for the client: safe, and one line without a stack so real problems stand out.
+      this.logger.warn(`${context} ${exception.message}`);
+    } else if (isClientHttpError(exception)) {
+      // The framework's message can quote the request: a malformed JSON body gives `Unexpected token 'e', "email=jane"...`.
+      // So log WHAT KIND of error it was, never its text.
+      this.logger.warn(`${context} ${exception.constructor.name}`);
     } else {
+      // A bug or an outage: the stack is needed to fix it (the logger removes any secret a library quoted in it).
       this.logger.error(context, exception instanceof Error ? exception.stack : String(exception));
     }
   }

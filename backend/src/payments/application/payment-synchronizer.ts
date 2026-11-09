@@ -43,6 +43,7 @@ export class PaymentSynchronizer {
       }
 
       const alreadyLinked = payment.providerRef === remote.providerRef;
+      const statusBefore = payment.status;
       payment.attachProviderRef(remote.providerRef, now);
       const outcome = payment.applyStatus(remote.status, remote.failureCode, now);
       if (outcome === TransitionOutcome.REJECTED) {
@@ -63,7 +64,14 @@ export class PaymentSynchronizer {
       const messages = outcome === TransitionOutcome.APPLIED && payment.isSucceeded() ? [paymentSucceededMessage(payment)] : [];
 
       try {
-        return await this.payments.save(payment, messages);
+        const saved = await this.payments.save(payment, messages);
+        // After the save, so the log never claims a change that was not stored. The failure code is the provider's
+        // reason ("card_declined"): it contains no personal data.
+        if (outcome === TransitionOutcome.APPLIED) {
+          const reason = saved.failureCode ? ` (${saved.failureCode})` : '';
+          this.logger.log(`Payment ${paymentId}: ${statusBefore} -> ${saved.status}${reason} [${saved.provider} ${remote.providerRef}]`);
+        }
+        return saved;
       } catch (error) {
         const lostTheRace = error instanceof PaymentConcurrentModificationError;
         if (!lostTheRace || attempt >= MAX_ATTEMPTS) throw error;

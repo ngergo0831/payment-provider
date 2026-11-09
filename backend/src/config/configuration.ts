@@ -1,8 +1,12 @@
+import { LogFormat } from '../common/logging/console-log-sink';
+import { LogLevelName } from '../common/logging/app-logger';
 import { Environment, PaymentProviderName, validateEnv } from './env.validation';
 
 /** The typed, structured view of configuration the rest of the app depends on. */
 export interface AppConfig {
   nodeEnv: Environment;
+  logLevel: LogLevelName;
+  logFormat: LogFormat;
   port: number;
   database: {
     /** Contains the password: pass it to the driver, never log it. */
@@ -35,6 +39,8 @@ export const configuration = (): AppConfig => {
   const env = validateEnv(process.env);
   return {
     nodeEnv: env.NODE_ENV,
+    logLevel: env.LOG_LEVEL,
+    logFormat: env.LOG_FORMAT,
     port: env.PORT,
     database: { url: env.DATABASE_URL },
     jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },

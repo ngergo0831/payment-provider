@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { CompanyRepository } from './ports';
 
 @Injectable()
 export class ActivateCompanyUseCase {
+  private readonly logger = new Logger(ActivateCompanyUseCase.name);
+
   constructor(private readonly companies: CompanyRepository) {}
 
   /**
@@ -17,5 +19,6 @@ export class ActivateCompanyUseCase {
 
     company.activate();
     await this.companies.save(company);
+    this.logger.log(`Company ${companyId} activated`);
   }
 }

@@ -3,16 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
+import { AppLogger } from './common/logging/app-logger';
 import { AppConfig } from './config/configuration';
 import { setupSwagger } from './swagger.setup';
 
 async function bootstrap(): Promise<void> {
-  // rawBody: webhook signatures are verified over the exact bytes the provider sent, so they must be kept.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  // bufferLogs: start-up messages wait until our logger is installed, so they are filtered and redacted too.
+  const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
+  app.useLogger(app.get(AppLogger));
   configureApp(app);
   setupSwagger(app);
-  // On SIGTERM (docker stop, a deploy) run the shutdown hooks: finish the background jobs in progress, stop taking
-  // requests, then close the database pool. Without this, the process is killed mid-work.
   app.enableShutdownHooks();
   const config = app.get<ConfigService<AppConfig, true>>(ConfigService);
   const port = config.get('port', { infer: true });

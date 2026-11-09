@@ -11,10 +11,6 @@ const DEFAULT_ERROR_RESPONSE = {
   content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
 };
 
-/**
- * Builds the OpenAPI document from the controllers and DTO decorators.
- * Separate from `setupSwagger` so tests can inspect the document without serving it.
- */
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle('Payment Service API')

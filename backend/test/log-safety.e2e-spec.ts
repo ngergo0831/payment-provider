@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
-import type { LoggerService } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
+import { LogRecord, LogSink } from '../src/common/logging/log-sink';
 import { AccountRepository, CompanyRepository } from '../src/onboarding/application/ports';
 import { Company } from '../src/onboarding/domain/company.entity';
 import { User } from '../src/onboarding/domain/user.entity';
@@ -29,18 +29,19 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
   const asText = (args: unknown[]) =>
     args.map((arg) => (typeof arg === 'string' ? arg : arg instanceof Error ? arg.stack : JSON.stringify(arg))).join(' ');
 
-  /** Receives every message the APPLICATION logs, at every level, through Nest's logger. */
+  /**
+   * Receives every record the APPLICATION logs, exactly as it would be shipped: after the real AppLogger has filtered
+   * and redacted it. Only the destination is replaced, so this checks the real logging path, redaction included.
+   */
   const applicationLogs: string[] = [];
-  const recorder: LoggerService = {
-    log: (...args) => void applicationLogs.push(asText(args)),
-    error: (...args) => void applicationLogs.push(asText(args)),
-    warn: (...args) => void applicationLogs.push(asText(args)),
-    debug: (...args) => void applicationLogs.push(asText(args)),
-    verbose: (...args) => void applicationLogs.push(asText(args)),
-  };
+  const recorder = new (class extends LogSink {
+    write(record: LogRecord): void {
+      applicationLogs.push(JSON.stringify(record));
+    }
+  })();
 
   beforeAll(async () => {
-    t = await createTestApp({ logger: recorder });
+    t = await createTestApp({ logSink: recorder, env: { LOG_LEVEL: 'debug' } });
   });
   afterAll(async () => {
     await t.close();
@@ -89,6 +90,10 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       await t.http.post('/auth/register').send({ email: 'not-an-email', fullName: FULL_NAME, company: { name: COMPANY_NAME, country: 'ZZ' } }).expect(422);
       await t.http.get('/onboarding/status').set('Authorization', `Bearer ${token}tampered`).expect(401);
       await t.http.get('/nope').expect(404);
+      // A body that is not JSON: the parser's error quotes the start of it, so the log must not repeat that text.
+      await t.http.post('/auth/register').set('Content-Type', 'application/json').send('BODYLEAK-canary.person@acme').expect(400);
+      // Personal data in a query string: the access log and the error log record the path, never the query.
+      await t.http.get('/onboarding/status?email=QUERYLEAK').set(auth).expect(200);
 
       // 4. Payment, with a client secret in play
       const started = await t.http.post('/payments').set(auth).expect(200);
@@ -128,7 +133,14 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
     expect(logs.length).toBeGreaterThan(0); // the capture works: otherwise "nothing leaked" proves nothing
     expect(logs).toContain('POST /auth/register -> 422'); // ...and it really saw the application's own failure logging
 
+    // The debugging trail of a payment: if these lines were missing, the safety checks below would prove nothing about them.
+    expect(logs).toMatch(/POST \/payments -> 200 \d+ms company=[0-9a-f-]{36}/); // access log, with the company
+    expect(logs).toMatch(/Payment [0-9a-f-]{36}: \w+ -> SUCCEEDED \[mock /); // the state change, and its provider reference
+    expect(logs).toMatch(/Company [0-9a-f-]{36} activated/);
+
     // Personal data
+    expect(logs).not.toContain('BODYLEAK');
+    expect(logs).not.toContain('QUERYLEAK');
     expect(logs).not.toContain(EMAIL);
     expect(logs).not.toContain('canary.person');
     expect(logs).not.toContain(FULL_NAME);
