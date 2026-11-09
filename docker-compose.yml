@@ -1,0 +1,35 @@
+# Local development infrastructure.
+#   docker compose up -d        start Postgres in the background
+#   docker compose ps           shows "healthy" once it accepts connections
+#   docker compose down         stop (data is kept)      |   docker compose down -v   stop AND wipe the data
+#
+# Settings come from a `.env` file next to this one (copy `.env.example`); every value has a dev default.
+
+services:
+  postgres:
+    # Major version pinned: `latest` could jump to a new major whose data files cannot read our volume.
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # Dev-only defaults. The postgres image creates this user and database on its FIRST start only.
+      POSTGRES_USER: ${POSTGRES_USER:-payments}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-payments}
+      POSTGRES_DB: ${POSTGRES_DB:-payments}
+    ports:
+      # 127.0.0.1: reachable from this machine only. A plain "5432:5432" would expose the
+      # database (with its dev password) to the whole network.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Named volume: data survives container restarts and recreation.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # "Started" is not "ready": Postgres needs a few seconds before it accepts connections.
+      # $$ stops compose substituting the variable; the shell INSIDE the container reads its own env.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:

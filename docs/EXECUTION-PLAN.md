@@ -69,14 +69,14 @@ Rules:
 | [x] | 1 | Repo baseline: `.gitignore`, execution plan, README skeleton (`assignment.txt` was already committed as the initial commit) | Repo hygiene, secrets never get committed | `chore: add repo baseline` |
 | [x] | 2 | NestJS skeleton plus `GET /health` with **no database yet**, and Jest running (one test) | Project layout; why Nest 12 needs ESM-mode Jest and TypeScript pinned to 6 | `feat: scaffold NestJS app with health endpoint` |
 | [x] | 3 | Validated config: fails at startup if env is wrong, plus `.env.example` | Fail-fast configuration | `feat: add validated configuration` |
-| [ ] | 4 | Global error handling: domain exceptions, one exception filter, validation pipe, request id | Why this comes before any feature; the single error envelope | `feat: add global exception handling` |
-| [ ] | 5 | Swagger at `/docs` | Documenting endpoints as we add them | `feat: add Swagger` |
+| [x] | 4 | Global error handling: domain exceptions, one exception filter, validation pipe, request id, helmet | Why this comes before any feature; the single error envelope | `feat: add global exception handling` |
+| [x] | 5 | Swagger at `/docs` | Documenting endpoints as we add them | `feat: add Swagger` |
 
 ## Phase 1 · Database connection
 
 | Done | # | Task | What you'll learn | Commit message |
 |---|---|---|---|---|
-| [ ] | 6 | `docker-compose.yml` with **only Postgres** and a healthcheck | Running infrastructure locally | `chore: add Postgres via docker compose` |
+| [x] | 6 | `docker-compose.yml` with **only Postgres** and a healthcheck | Running infrastructure locally | `chore: add Postgres via docker compose` |
 | [ ] | 7 | TypeORM connection and migration runner (no tables yet); `/health` now checks the DB | Why `synchronize` is off and migrations own the schema | `feat: connect to PostgreSQL with migrations` |
 
 ## Phase 2 · Minimal registration (thin by design)
@@ -121,11 +121,9 @@ Rules:
 |---|---|---|---|
 | [ ] | 29 | Dockerfiles, nginx, full `docker compose up` | `chore: containerize backend and frontend` |
 | [ ] | 30 | Stripe CLI profile and a real test-mode walkthrough (needs Stripe keys) | `chore: add Stripe CLI profile` |
-| [ ] | 31 | `DESIGN.md`, `AI-USAGE.md`, `PRESENTATION.md`, final README | `docs: add design, AI usage, presentation` |
+| [ ] | 31 | `DESIGN.md`, `PRESENTATION.md` (including the AI-usage slide the assignment requires), final README | `docs: add design and presentation` |
 
 ## Notes
-
-**AI-USAGE log.** Entries are appended to `docs/AI-USAGE.md` as risky AI answers come up (for example the `suppressErrors` default in task 19), so the notes record what happened when it happened.
 
 **Lessons built in from the start** (learned in an earlier bulk build, kept as a reference outside the repo):
 
@@ -138,6 +136,6 @@ Rules:
 
 **Known tradeoff of the thin registration.** There is no login, so the JWT in the browser is the only session. Closing the tab keeps it (localStorage, 24 h); losing it means registering again with new sample data. Acceptable because identity is not what is being evaluated.
 
-**Environment.** Docker is not installed on the development machine. Task 6 prepares the compose file but cannot run it here. From task 7 onward, database-backed tests use an embedded Postgres. Tasks 29 and 30 stay unverified until run on a machine with Docker.
+**Environment.** Docker Desktop is installed (Docker 29.9, Compose 5.7), so every Docker-related task can be run and verified here. Database-backed tests use the Postgres from `docker-compose.yml` (start it with `docker compose up -d`), each test run creating its own throw-away database.
 
 **Reference build.** The earlier full build (76 passing tests) lives outside the repo at `C:\Users\ngerg\Documents\Projects\payment-service-reference`. Its ideas are reintroduced piece by piece, not pasted in bulk.
