@@ -41,9 +41,14 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...valid, PORT: port })).toThrow(/PORT/);
   });
 
-  it('gives one clear message per variable (non-numeric PORT is "not an integer", not "too large")', () => {
-    expect(() => validateEnv({ ...valid, PORT: 'abc' })).toThrow('PORT must be an integer number');
-    expect(() => validateEnv({ ...valid, PORT: 'abc' })).not.toThrow(/greater than|less than/);
+  it.each([
+    ['PORT', 'abc'],
+    ['PORT', ''],
+    ['PLAN_PRICE_MINOR', 'abc'],
+    ['OUTBOX_POLL_INTERVAL_MS', ''],
+  ])('gives one clear message per number: %s=%j is "not an integer", not "too small/large"', (name, value) => {
+    expect(() => validateEnv({ ...valid, [name]: value })).toThrow(`${name} must be an integer number`);
+    expect(() => validateEnv({ ...valid, [name]: value })).not.toThrow(/greater than|less than/);
   });
 
   it('rejects an unknown NODE_ENV', () => {
@@ -194,6 +199,12 @@ describe('validateEnv', () => {
 
     it('the mock is REFUSED in production: its webhook "signature" is public, so anyone could fake a payment', () => {
       expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48) })).toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
+    });
+
+    it('reports every production problem in ONE error, so a bad deploy is fixed in one go', () => {
+      const production = { DATABASE_URL: valid.DATABASE_URL, NODE_ENV: 'production', JWT_SECRET: `dev-only-${'x'.repeat(32)}`, PLAN_CURRENCY: 'BTC' };
+
+      expect(() => validateEnv(production)).toThrow(/Unsupported currency[\s\S]*PAYMENT_PROVIDER=mock[\s\S]*JWT_SECRET is the public/);
     });
   });
 
