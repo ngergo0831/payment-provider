@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Money } from '../domain/money';
 import { Payment, TransitionOutcome } from '../domain/payment';
+import { paymentSucceededMessage } from './outbox';
 import { ProviderPayment } from './ports/payment-provider';
 import { PaymentConcurrentModificationError, PaymentRepository } from './ports/repositories';
 
@@ -56,8 +57,13 @@ export class PaymentSynchronizer {
 
       payment.markSynced();
 
+      // Queue "payment succeeded" ONLY at the moment of the transition. A payment can reach SUCCEEDED once (it is final),
+      // so this yields exactly one message per payment, however many duplicate reports or racing requests there are.
+      // It is saved in the same transaction as the status change (outbox), so it cannot be lost or sent for nothing.
+      const messages = outcome === TransitionOutcome.APPLIED && payment.isSucceeded() ? [paymentSucceededMessage(payment)] : [];
+
       try {
-        return await this.payments.save(payment);
+        return await this.payments.save(payment, messages);
       } catch (error) {
         const lostTheRace = error instanceof PaymentConcurrentModificationError;
         if (!lostTheRace || attempt >= MAX_ATTEMPTS) throw error;

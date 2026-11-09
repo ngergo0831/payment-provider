@@ -9,6 +9,7 @@ import { PaymentRepository, WebhookEventRepository } from './application/ports/r
 import { GetPaymentUseCase } from './application/use-cases/get-payment.use-case';
 import { StartPaymentUseCase } from './application/use-cases/start-payment.use-case';
 import { ConfigPlanPricing, OnboardingCompanyGateway } from './infrastructure/onboarding-company.gateway';
+import { OutboxRecord } from './infrastructure/persistence/outbox.record';
 import { PaymentRecord } from './infrastructure/persistence/payment.record';
 import { TypeOrmPaymentRepository } from './infrastructure/persistence/typeorm-payment.repository';
 import { TypeOrmWebhookEventRepository } from './infrastructure/persistence/typeorm-webhook-event.repository';
@@ -17,7 +18,7 @@ import { MockPaymentProvider } from './infrastructure/providers/mock-payment.pro
 import { PaymentsController } from './presentation/payments.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PaymentRecord, WebhookEventRecord]), OnboardingModule, JwtAuthModule],
+  imports: [TypeOrmModule.forFeature([PaymentRecord, WebhookEventRecord, OutboxRecord]), OnboardingModule, JwtAuthModule],
   controllers: [PaymentsController],
   providers: [
     StartPaymentUseCase,

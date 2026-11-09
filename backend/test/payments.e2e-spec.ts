@@ -148,6 +148,21 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       expect(resumed.body.clientSecret).toBeNull();
     });
 
+    it('queues exactly ONE "payment succeeded" message however many times the success is discovered', async () => {
+      const admin = await newAdmin();
+      const { body } = await admin.start().expect(200);
+      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
+
+      await Promise.all([admin.start(), admin.start(), admin.start()]);
+      await admin.start();
+
+      const messages = await queryDatabase<{ payload: { paymentId: string; companyId: string } }>(
+        t.databaseUrl,
+        `SELECT payload FROM outbox_messages WHERE payload->>'paymentId' = '${body.payment.id}'`,
+      );
+      expect(messages).toEqual([{ payload: { paymentId: body.payment.id, companyId: admin.companyId } }]);
+    });
+
     it('replaces a payment the provider canceled with a fresh one', async () => {
       const admin = await newAdmin();
       const first = await admin.start().expect(200);

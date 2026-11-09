@@ -7,8 +7,10 @@ import {
   PaymentConcurrentModificationError,
   PaymentRepository,
 } from '../../application/ports/repositories';
+import { OutboxMessage } from '../../application/outbox';
 import { Payment } from '../../domain/payment';
 import { OPEN_STATUSES } from '../../domain/payment-status';
+import { OutboxRecord } from './outbox.record';
 import { toDomain, toRecord } from './payment.mapper';
 import { PaymentRecord } from './payment.record';
 
@@ -43,26 +45,37 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     }
   }
 
-  async save(payment: Payment): Promise<Payment> {
+  async save(payment: Payment, messages: OutboxMessage[] = []): Promise<Payment> {
     const record = toRecord(payment);
 
-    // Optimistic locking: the WHERE clause only matches while the stored version is still the one we loaded.
-    // If someone else saved in between, zero rows match and nothing is overwritten.
-    const result = await this.records
-      .createQueryBuilder()
-      .update(PaymentRecord)
-      .set({
-        providerRef: record.providerRef,
-        status: record.status,
-        failureCode: record.failureCode,
-        lastSyncedAt: record.lastSyncedAt,
-        updatedAt: record.updatedAt,
-        version: () => 'version + 1',
-      })
-      .where('id = :id AND version = :version', { id: record.id, version: record.version })
-      .execute();
+    // One transaction: the payment change and its outbox messages are written together or not at all.
+    await this.records.manager.transaction(async (manager) => {
+      // Optimistic locking: the WHERE clause only matches while the stored version is still the one we loaded.
+      // If someone else saved in between, zero rows match and nothing is overwritten.
+      const result = await manager
+        .createQueryBuilder()
+        .update(PaymentRecord)
+        .set({
+          providerRef: record.providerRef,
+          status: record.status,
+          failureCode: record.failureCode,
+          lastSyncedAt: record.lastSyncedAt,
+          updatedAt: record.updatedAt,
+          version: () => 'version + 1',
+        })
+        .where('id = :id AND version = :version', { id: record.id, version: record.version })
+        .execute();
 
-    if (result.affected !== 1) throw new PaymentConcurrentModificationError(payment.id);
+      // Throwing inside the transaction rolls it back, so no outbox message is left behind for a change that did not happen.
+      if (result.affected !== 1) throw new PaymentConcurrentModificationError(payment.id);
+
+      if (messages.length > 0) {
+        await manager.insert(
+          OutboxRecord,
+          messages.map((message) => ({ id: message.id, type: message.type, payload: message.payload as object })),
+        );
+      }
+    });
 
     return Payment.restore({ ...payment.toSnapshot(), version: payment.version + 1 });
   }

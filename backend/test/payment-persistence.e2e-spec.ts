@@ -203,6 +203,67 @@ describe('payment persistence (real PostgreSQL)', () => {
     });
   });
 
+  describe('outbox: messages are saved in the SAME transaction as the payment change', () => {
+    const message = (type = 'payment.succeeded') => ({ id: crypto.randomUUID(), type, payload: { paymentId: 'p', companyId: 'c' } });
+    const outboxRows = (id: string) => queryDatabase<{ type: string; payload: unknown; processed_at: Date | null; attempts: number }>(
+      t.databaseUrl, `SELECT type, payload, processed_at, attempts FROM outbox_messages WHERE id = '${id}'`);
+
+    it('queues the message together with the change, undelivered', async () => {
+      const payment = await stored(await newCompany());
+      payment.applyStatus(PaymentStatus.SUCCEEDED);
+      const queued = message();
+
+      const saved = await payments.save(payment, [queued]);
+
+      expect(saved.status).toBe(PaymentStatus.SUCCEEDED);
+      expect(await outboxRows(queued.id)).toEqual([
+        { type: 'payment.succeeded', payload: { paymentId: 'p', companyId: 'c' }, processed_at: null, attempts: 0 },
+      ]);
+    });
+
+    it('saves a change with no messages as before', async () => {
+      const payment = await stored(await newCompany());
+      payment.applyStatus(PaymentStatus.PROCESSING);
+      await expect(payments.save(payment)).resolves.toMatchObject({ version: 1 });
+    });
+
+    it('queues NOTHING when the save loses the optimistic-lock race (no message for a change that did not happen)', async () => {
+      const original = await stored(await newCompany());
+      const first = (await payments.findById(original.id)) as Payment;
+      const second = (await payments.findById(original.id)) as Payment;
+      first.applyStatus(PaymentStatus.PROCESSING);
+      await payments.save(first);
+
+      second.applyStatus(PaymentStatus.SUCCEEDED);
+      const queued = message();
+      await expect(payments.save(second, [queued])).rejects.toBeInstanceOf(PaymentConcurrentModificationError);
+
+      expect(await outboxRows(queued.id)).toHaveLength(0);
+    });
+
+    it('UNDOES the payment change when the message cannot be written: all or nothing', async () => {
+      const payment = await stored(await newCompany());
+      payment.applyStatus(PaymentStatus.SUCCEEDED);
+      const impossible = message('x'.repeat(101)); // longer than the column allows, so the INSERT fails
+
+      await expect(payments.save(payment, [impossible])).rejects.toThrow();
+
+      expect(await payments.findById(payment.id)).toMatchObject({ status: PaymentStatus.CREATED, version: 0 }); // rolled back
+      expect(await outboxRows(impossible.id)).toHaveLength(0);
+    });
+
+    it('queues several messages in the one transaction', async () => {
+      const payment = await stored(await newCompany());
+      payment.applyStatus(PaymentStatus.PROCESSING);
+      const [a, b] = [message('a.event'), message('b.event')];
+
+      await payments.save(payment, [a, b]);
+
+      expect(await outboxRows(a.id)).toHaveLength(1);
+      expect(await outboxRows(b.id)).toHaveLength(1);
+    });
+  });
+
   describe('rules enforced by the database itself', () => {
     const insert = (columns: Record<string, string | number>, companyId: string) => {
       const row = {

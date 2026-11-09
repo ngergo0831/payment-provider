@@ -1,3 +1,4 @@
+import { OutboxMessage } from '../payments/application/outbox';
 import { BillingProfile, CompanyGateway, PlanPricing } from '../payments/application/ports/collaborators';
 import {
   OpenPaymentAlreadyExistsError,
@@ -47,7 +48,10 @@ export class InMemoryPaymentRepository extends PaymentRepository {
     this.rows.set(payment.id, payment.toSnapshot());
   }
 
-  async save(payment: Payment): Promise<Payment> {
+  /** Messages queued together with saves (the outbox), in order. */
+  readonly outbox: OutboxMessage[] = [];
+
+  async save(payment: Payment, messages: OutboxMessage[] = []): Promise<Payment> {
     this.saveCalls++;
     const stored = this.rows.get(payment.id);
 
@@ -61,6 +65,7 @@ export class InMemoryPaymentRepository extends PaymentRepository {
 
     const next = { ...payment.toSnapshot(), version: payment.version + 1 };
     this.rows.set(payment.id, next);
+    this.outbox.push(...messages); // only reached when the save succeeded, like the real transaction
     return Payment.restore(next);
   }
 }

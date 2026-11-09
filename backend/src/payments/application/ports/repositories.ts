@@ -1,4 +1,5 @@
 import { Payment } from '../../domain/payment';
+import { OutboxMessage } from '../outbox';
 
 /** The company already has an open (non-final) payment. Expected under concurrent requests; callers re-read and reuse it. */
 export class OpenPaymentAlreadyExistsError extends Error {
@@ -39,10 +40,13 @@ export abstract class PaymentRepository {
    * Stores changes to an EXISTING payment, and returns it as persisted: the same data with the new `version`.
    * Always continue with the RETURNED payment; the one passed in still carries the old version.
    *
+   * `messages` are queued in the SAME transaction as the change (the outbox pattern): the payment is saved and the
+   * messages are queued, or nothing happens at all. This is what stops a paid payment from being forgotten.
+   *
    * @throws PaymentConcurrentModificationError if the stored version is no longer the one this payment was loaded
-   *         with. Nothing is written in that case (no lost updates).
+   *         with. Nothing is written in that case, not even the messages (no lost updates).
    */
-  abstract save(payment: Payment): Promise<Payment>;
+  abstract save(payment: Payment, messages?: OutboxMessage[]): Promise<Payment>;
 }
 
 /** A provider notification as stored in the inbox. */

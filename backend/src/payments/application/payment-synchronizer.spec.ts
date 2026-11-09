@@ -83,6 +83,65 @@ describe('PaymentSynchronizer', () => {
     });
   });
 
+  describe('the "payment succeeded" outbox message', () => {
+    it('is queued exactly when the payment becomes SUCCEEDED, naming the payment and its company', async () => {
+      const { synchronizer, payment, repo } = await setup();
+
+      await synchronizer.apply(payment.id, remote({ status: PaymentStatus.SUCCEEDED }));
+
+      expect(repo.outbox).toEqual([
+        { id: expect.any(String), type: 'payment.succeeded', payload: { paymentId: payment.id, companyId: 'c1' } },
+      ]);
+    });
+
+    it.each([PaymentStatus.CREATED, PaymentStatus.REQUIRES_ACTION, PaymentStatus.PROCESSING, PaymentStatus.FAILED, PaymentStatus.CANCELED])(
+      'is NOT queued for %s',
+      async (status) => {
+        const { synchronizer, payment, repo } = await setup();
+        await synchronizer.apply(payment.id, remote({ status, failureCode: status === PaymentStatus.FAILED ? 'x' : null }));
+        expect(repo.outbox).toEqual([]);
+      },
+    );
+
+    it('is queued ONCE even if the success is reported again (a duplicate webhook, a reconciliation pass)', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      const news = remote({ status: PaymentStatus.SUCCEEDED });
+
+      await synchronizer.apply(payment.id, news);
+      await synchronizer.apply(payment.id, news);
+      await synchronizer.apply(payment.id, news);
+
+      expect(repo.outbox).toHaveLength(1);
+    });
+
+    it('is queued ONCE when five requests report the success at the same moment', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      const news = remote({ status: PaymentStatus.SUCCEEDED });
+
+      await Promise.all(Array.from({ length: 5 }, () => synchronizer.apply(payment.id, news)));
+
+      expect(repo.outbox).toHaveLength(1);
+    });
+
+    it('is NOT queued when the save lost the race (nothing was saved, so nothing is announced)', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      repo.conflictsToInject = 10;
+
+      await expect(synchronizer.apply(payment.id, remote({ status: PaymentStatus.SUCCEEDED }))).rejects.toThrow();
+
+      expect(repo.outbox).toEqual([]);
+    });
+
+    it('is NOT queued for a late "succeeded" on a payment that was already canceled (the move is rejected)', async () => {
+      const { synchronizer, payment, repo } = await setup();
+      await synchronizer.apply(payment.id, remote({ status: PaymentStatus.CANCELED }));
+
+      await synchronizer.apply(payment.id, remote({ status: PaymentStatus.SUCCEEDED }));
+
+      expect(repo.outbox).toEqual([]);
+    });
+  });
+
   describe('safety checks', () => {
     it('REFUSES to proceed when the provider reports a different amount than we asked for', async () => {
       const { synchronizer, payment, repo } = await setup();

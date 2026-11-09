@@ -19,6 +19,7 @@ describe('database schema (real PostgreSQL)', () => {
     expect(applied.map((row) => row.name)).toEqual([
       'CreateCompaniesAndUsers1794237392899',
       'CreatePaymentsAndWebhookEvents1794239203917',
+      'CreateOutboxMessages1794240546520',
     ]);
   });
 
@@ -27,7 +28,7 @@ describe('database schema (real PostgreSQL)', () => {
       t.databaseUrl,
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
     );
-    expect(tables.map((row) => row.table_name)).toEqual(['companies', 'migrations', 'payments', 'users', 'webhook_events']);
+    expect(tables.map((row) => row.table_name)).toEqual(['companies', 'migrations', 'outbox_messages', 'payments', 'users', 'webhook_events']);
   });
 
   it('matches the entities exactly: no drift between the hand-written migrations and the code', async () => {
