@@ -31,13 +31,15 @@ const CODE_BY_HTTP_STATUS: Partial<Record<number, ErrorCode>> = {
 
 type NormalisedError = Pick<ErrorResponse, 'statusCode' | 'code' | 'message' | 'details'>;
 
+const UNEXPECTED_MESSAGE = 'An unexpected error occurred';
+
 /**
  * The single place where ANY thrown error becomes an HTTP response.
  *
- *  - DomainException -> status from its kind; its (safe) message is returned
- *  - HttpException   -> raised by the framework itself; its status is kept
- *  - anything else   -> a bug or an outage. The stack is LOGGED, the client only sees a generic 500,
- *                       so no SQL, file paths or secrets can leak through an error message.
+ *  - DomainException      -> status from its kind; its (safe) message is returned
+ *  - HttpException (4xx)  -> raised by the framework itself (guards, routing, body parsing); status and message kept
+ *  - anything else        -> a bug or an outage, including a framework 5xx. The stack is LOGGED, the client only
+ *                            sees a generic message, so no SQL, file paths or secrets can leak through it.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -71,7 +73,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         details: exception.details,
       };
     }
-    if (exception instanceof HttpException) {
+    if (isClientHttpError(exception)) {
       const statusCode = exception.getStatus();
       return {
         statusCode,
@@ -80,9 +82,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       };
     }
     return {
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      statusCode: exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR,
       code: ErrorCode.INTERNAL_ERROR,
-      message: 'An unexpected error occurred',
+      message: UNEXPECTED_MESSAGE,
     };
   }
 
@@ -95,7 +97,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   private log(exception: unknown, statusCode: number, request: RequestWithId): void {
     const context = `[${request.id}] ${request.method} ${request.url} -> ${statusCode}`;
-    const isExpectedFailure = exception instanceof DomainException || exception instanceof HttpException;
+    const isExpectedFailure = exception instanceof DomainException || isClientHttpError(exception);
 
     if (isExpectedFailure) {
       // Already classified and handled: one line, no stack trace, so real problems stay visible in the noise.
@@ -104,4 +106,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(context, exception instanceof Error ? exception.stack : String(exception));
     }
   }
+}
+
+/** A framework error the CLIENT caused (4xx). A framework 5xx is our fault and is treated like any unexpected error. */
+function isClientHttpError(exception: unknown): exception is HttpException {
+  return exception instanceof HttpException && exception.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR;
 }

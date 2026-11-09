@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CompanyNotFoundException } from '../../common/errors/company-not-found.exception';
+import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { Company } from '../domain/company.entity';
 import { CompanyRepository } from './ports';
 

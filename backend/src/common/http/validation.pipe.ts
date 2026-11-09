@@ -1,6 +1,6 @@
 import { ValidationError, ValidationPipe } from '@nestjs/common';
 import { FieldError } from '../errors/domain.exception';
-import { ValidationFailedException } from '../errors/validation-failed.exception';
+import { ValidationFailedException } from '../errors/exceptions';
 
 /** Flattens class-validator's nested error tree into `[{ field: 'company.name', messages: [...] }]`. */
 function flatten(errors: ValidationError[], parent = ''): FieldError[] {

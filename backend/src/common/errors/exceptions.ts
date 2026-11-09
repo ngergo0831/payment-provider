@@ -1,5 +1,35 @@
-import { DomainException, ErrorKind } from './domain.exception';
+import { DomainException, ErrorKind, FieldError } from './domain.exception';
 import { ErrorCode } from './error-codes';
+
+/**
+ * Every failure the application raises on purpose, in one place. Each one fixes its own kind (which the exception
+ * filter maps to an HTTP status), its stable code, and a message that is safe to show to a client.
+ */
+
+// ---- input ----
+
+/** The request broke the input rules. Carries which fields and why, so the UI can mark them. */
+export class ValidationFailedException extends DomainException {
+  constructor(details: FieldError[]) {
+    super(ErrorKind.VALIDATION, ErrorCode.VALIDATION_FAILED, 'Request validation failed', details);
+  }
+}
+
+// ---- onboarding ----
+
+export class EmailAlreadyRegisteredException extends DomainException {
+  constructor() {
+    super(ErrorKind.CONFLICT, ErrorCode.EMAIL_ALREADY_REGISTERED, 'An account with this email already exists');
+  }
+}
+
+export class CompanyNotFoundException extends DomainException {
+  constructor() {
+    super(ErrorKind.NOT_FOUND, ErrorCode.COMPANY_NOT_FOUND, 'Company not found');
+  }
+}
+
+// ---- payments ----
 
 export class CompanyAlreadyActiveException extends DomainException {
   constructor() {

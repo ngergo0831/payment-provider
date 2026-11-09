@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
-import { PaymentProviderUnavailableException } from '../../../common/errors/payment-exceptions';
+import { PaymentProviderUnavailableException } from '../../../common/errors/exceptions';
 import { FakeCompanyGateway, FixedPricing, InMemoryPaymentRepository } from '../../../testing/in-memory-payments';
 import { InMemoryWebhookEvents } from '../../../testing/in-memory-webhook-events';
 import { MockOutcome, MockPaymentProvider } from '../../infrastructure/providers/mock-payment.provider';

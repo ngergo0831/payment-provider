@@ -1,4 +1,4 @@
-import { PaymentNotFoundException } from '../../../common/errors/payment-exceptions';
+import { PaymentNotFoundException } from '../../../common/errors/exceptions';
 import { InMemoryPaymentRepository } from '../../../testing/in-memory-payments';
 import { Money } from '../../domain/money';
 import { Payment } from '../../domain/payment';

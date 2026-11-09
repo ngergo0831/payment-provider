@@ -1,4 +1,4 @@
-import { EmailAlreadyRegisteredException } from '../../common/errors/email-already-registered.exception';
+import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
 import { InMemoryOnboarding } from '../../testing/in-memory-onboarding';
 import { CompanyStatus } from '../domain/company.entity';
 import { UserRole } from '../domain/user.entity';

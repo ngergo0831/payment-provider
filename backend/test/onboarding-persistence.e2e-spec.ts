@@ -1,4 +1,4 @@
-import { EmailAlreadyRegisteredException } from '../src/common/errors/email-already-registered.exception';
+import { EmailAlreadyRegisteredException } from '../src/common/errors/exceptions';
 import { AccountRepository, CompanyRepository, UserRepository } from '../src/onboarding/application/ports';
 import { Company, CompanyStatus } from '../src/onboarding/domain/company.entity';
 import { User, UserRole } from '../src/onboarding/domain/user.entity';

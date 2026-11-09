@@ -3,7 +3,7 @@ import {
   InvalidWebhookSignatureException,
   PaymentProviderFailureException,
   PaymentProviderUnavailableException,
-} from '../common/errors/payment-exceptions';
+} from '../common/errors/exceptions';
 import { PaymentProvider } from '../payments/application/ports/payment-provider';
 import { Money } from '../payments/domain/money';
 import { PaymentStatus } from '../payments/domain/payment-status';

@@ -4,7 +4,7 @@ import {
   InvalidWebhookSignatureException,
   PaymentProviderFailureException,
   PaymentProviderUnavailableException,
-} from '../../../common/errors/payment-exceptions';
+} from '../../../common/errors/exceptions';
 import {
   CreateProviderPaymentInput,
   PaymentProvider,

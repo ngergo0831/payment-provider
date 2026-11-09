@@ -1,4 +1,4 @@
-import { CompanyNotFoundException } from '../../common/errors/company-not-found.exception';
+import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { InMemoryOnboarding } from '../../testing/in-memory-onboarding';
 import { Company } from '../domain/company.entity';
 import { GetOnboardingStatusUseCase, OnboardingStep } from './get-onboarding-status.use-case';

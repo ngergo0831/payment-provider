@@ -1,8 +1,4 @@
-import { CompanyNotFoundException } from '../../../common/errors/company-not-found.exception';
-import {
-  CompanyAlreadyActiveException,
-  PaymentProviderUnavailableException,
-} from '../../../common/errors/payment-exceptions';
+import { CompanyAlreadyActiveException, CompanyNotFoundException, PaymentProviderUnavailableException } from '../../../common/errors/exceptions';
 import { jest } from '@jest/globals';
 import { FakeCompanyGateway, FixedPricing, InMemoryPaymentRepository } from '../../../testing/in-memory-payments';
 import { MockOutcome, MockPaymentProvider } from '../../infrastructure/providers/mock-payment.provider';

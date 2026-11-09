@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EmailAlreadyRegisteredException } from '../../common/errors/email-already-registered.exception';
+import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
 import { Company } from '../domain/company.entity';
 import { normaliseEmail } from '../domain/email';
 import { User } from '../domain/user.entity';

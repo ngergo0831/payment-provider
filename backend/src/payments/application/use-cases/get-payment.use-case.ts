@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentNotFoundException } from '../../../common/errors/payment-exceptions';
+import { PaymentNotFoundException } from '../../../common/errors/exceptions';
 import { Payment } from '../../domain/payment';
 import { PaymentRepository } from '../ports/repositories';
 

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CompanyNotFoundException } from '../../../common/errors/company-not-found.exception';
-import { CompanyAlreadyActiveException } from '../../../common/errors/payment-exceptions';
+import { CompanyAlreadyActiveException, CompanyNotFoundException } from '../../../common/errors/exceptions';
 import { Payment } from '../../domain/payment';
 import { PaymentStatus } from '../../domain/payment-status';
 import { PaymentSynchronizer } from '../payment-synchronizer';

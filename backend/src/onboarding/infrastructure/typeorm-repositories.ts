@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { isUniqueViolation } from '../../common/database/pg-errors';
-import { EmailAlreadyRegisteredException } from '../../common/errors/email-already-registered.exception';
+import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
 import { AccountRepository, CompanyRepository, UserRepository } from '../application/ports';
 import { Company } from '../domain/company.entity';
 import { User } from '../domain/user.entity';

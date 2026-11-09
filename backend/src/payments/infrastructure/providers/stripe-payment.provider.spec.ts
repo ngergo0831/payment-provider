@@ -5,7 +5,7 @@ import {
   InvalidWebhookSignatureException,
   PaymentProviderFailureException,
   PaymentProviderUnavailableException,
-} from '../../../common/errors/payment-exceptions';
+} from '../../../common/errors/exceptions';
 import { Money } from '../../domain/money';
 import { PaymentStatus } from '../../domain/payment-status';
 import { StripePaymentProvider } from './stripe-payment.provider';
