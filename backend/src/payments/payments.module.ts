@@ -9,6 +9,7 @@ import { CompanyActivation, CompanyGateway, PlanPricing } from './application/po
 import { PaymentProvider } from './application/ports/payment-provider';
 import { OutboxRepository, PaymentRepository, WebhookEventRepository } from './application/ports/repositories';
 import { GetPaymentUseCase } from './application/use-cases/get-payment.use-case';
+import { HandleProviderEventUseCase } from './application/use-cases/handle-provider-event.use-case';
 import { StartPaymentUseCase } from './application/use-cases/start-payment.use-case';
 import { ConfigPlanPricing, OnboardingCompanyActivation, OnboardingCompanyGateway } from './infrastructure/onboarding-company.gateway';
 import { OutboxScheduler } from './infrastructure/outbox.scheduler';
@@ -19,14 +20,17 @@ import { TypeOrmPaymentRepository } from './infrastructure/persistence/typeorm-p
 import { TypeOrmWebhookEventRepository } from './infrastructure/persistence/typeorm-webhook-event.repository';
 import { WebhookEventRecord } from './infrastructure/persistence/webhook-event.record';
 import { MockPaymentProvider } from './infrastructure/providers/mock-payment.provider';
+import { MockPaymentsDevController } from './presentation/mock-payments-dev.controller';
 import { PaymentsController } from './presentation/payments.controller';
+import { WebhooksController } from './presentation/webhooks.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([PaymentRecord, WebhookEventRecord, OutboxRecord]), OnboardingModule, JwtAuthModule],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, WebhooksController, MockPaymentsDevController],
   providers: [
     StartPaymentUseCase,
     GetPaymentUseCase,
+    HandleProviderEventUseCase,
     PaymentSynchronizer,
     OutboxDispatcher,
     OutboxScheduler,

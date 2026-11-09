@@ -64,7 +64,7 @@ export async function createTestApp(
   const { configureApp } = await import('../../src/app.setup');
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication({ logger: ['error'] });
+  const app = moduleRef.createNestApplication({ rawBody: true, logger: ['error'] });
   configureApp(app);
   // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
   beforeInit?.(app);

@@ -64,6 +64,10 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
       expect(provider.name).toMatch(/^[a-z]+$/);
     });
 
+    it('says which header carries its webhook signature (lower-case, a valid HTTP header name)', () => {
+      expect(provider.webhookSignatureHeader).toMatch(/^[a-z][a-z0-9-]*$/);
+    });
+
     describe('createPayment', () => {
       it('creates a payment that is CREATED, with a reference and a client secret, and no failure', async () => {
         const created = await provider.createPayment(input());

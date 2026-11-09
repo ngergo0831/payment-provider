@@ -120,6 +120,25 @@ resumes the same payment. Starting a payment does not activate the account; that
 
 Delivery is at-least-once, so activation is idempotent: delivering the same message twice changes nothing.
 
+### Webhooks
+
+The provider tells us a payment changed by calling `POST /webhooks/payments` (public: the **signature** is the credential,
+checked over the exact bytes received). A webhook is only a *trigger*: we never trust what it says, we ask the provider for the
+payment's real current state. So a duplicate, late, out-of-order or forged message cannot mislead us. An event is marked
+handled only after everything succeeded, so if something fails the provider's retry is processed, not skipped.
+
+### Trying it from Swagger (mock provider)
+
+Open `/docs`, register, click **Authorize** and paste the token, then:
+
+1. `POST /payments`, and copy `payment.providerRef`
+2. `POST /dev/mock-payments/{providerRef}/simulate` with `{"outcome": "succeed"}` (or `decline`, `require_action`, `processing`, `cancel`)
+3. `GET /onboarding/status` shows `ACTIVE` about a second later
+
+Failure drills: `{"outcome": "succeed", "deliverWebhook": false}` simulates a **lost webhook** (the account activates when the
+customer resumes checkout via `POST /payments`), and `POST /dev/mock-payments/outage` switches the provider "off".
+These dev endpoints answer `404` when `NODE_ENV=production`.
+
 Currently only a built-in mock provider is available (see `docs/adr/0005-payment-provider-port.md`).
 
 ## Error format

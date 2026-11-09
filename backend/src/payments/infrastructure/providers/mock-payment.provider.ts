@@ -50,6 +50,7 @@ const STATE_AFTER: Record<MockOutcome, { status: PaymentStatus; failureCode: str
  */
 export class MockPaymentProvider extends PaymentProvider {
   readonly name = 'mock';
+  readonly webhookSignatureHeader = 'x-mock-signature';
 
   private readonly intentsByRef = new Map<string, MockIntent>();
   private readonly refByPaymentId = new Map<string, string>();

@@ -7,7 +7,8 @@ import { AppConfig } from './config/configuration';
 import { setupSwagger } from './swagger.setup';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: webhook signatures are verified over the exact bytes the provider sent, so they must be kept.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   configureApp(app);
   setupSwagger(app);
   const config = app.get<ConfigService<AppConfig, true>>(ConfigService);

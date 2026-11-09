@@ -63,6 +63,9 @@ export abstract class PaymentProvider {
   /** Short, stable name stored with each payment, e.g. "stripe" or "mock". */
   abstract readonly name: string;
 
+  /** Which HTTP header carries the webhook signature (lower-case), e.g. "stripe-signature". The controller stays provider-neutral. */
+  abstract readonly webhookSignatureHeader: string;
+
   /** @throws PaymentProviderUnavailableException | PaymentProviderFailureException */
   abstract createPayment(input: CreateProviderPaymentInput): Promise<ProviderPayment>;
 
