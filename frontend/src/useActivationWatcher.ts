@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from './api/client';
 
-export const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 2000;
 /** After this long without an answer we stop saying "just a moment" and explain that it is taking longer. */
-export const SLOW_AFTER_MS = 15_000;
+const SLOW_AFTER_MS = 15_000;
 
-export type WatchOutcome =
+type WatchOutcome =
   | 'waiting'
   /** The company is ACTIVE: onboarding is complete. */
   | 'active'
@@ -14,7 +14,7 @@ export type WatchOutcome =
   /** The token is no longer accepted. */
   | 'expired';
 
-export interface Watch {
+interface Watch {
   outcome: WatchOutcome;
   /** The last request could not reach the API (we are offline, or it is down); we keep trying. */
   offline: boolean;

@@ -12,7 +12,11 @@ const KEY = 'payment-service.session';
 export function loadSession(): Session | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
+    const stored: Partial<Session> | null = raw ? JSON.parse(raw) : null;
+    // Storage can hold anything (an old version of the app, a hand-edited value): accept only a complete session.
+    return typeof stored?.token === 'string' && typeof stored.companyName === 'string' && typeof stored.email === 'string'
+      ? { token: stored.token, companyName: stored.companyName, email: stored.email }
+      : null;
   } catch {
     return null;
   }

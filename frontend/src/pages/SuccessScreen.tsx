@@ -5,7 +5,7 @@ export function SuccessScreen({ session }: { session: Session }) {
     <section>
       <h2>You're all set 🎉</h2>
       <p>
-        <strong>{session.companyName}</strong> is now active. Your team can start using the product ({session.email}).
+        <strong>{session.companyName}</strong> is now active, and your team can start using the product.
       </p>
     </section>
   );

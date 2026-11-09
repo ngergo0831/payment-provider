@@ -48,8 +48,9 @@ function setup(config: CheckoutConfig, started: PaymentCheckout | ApiError) {
   if (started instanceof ApiError) start.mockRejectedValue(started);
   else start.mockResolvedValue(started);
   const onSubmitted = vi.fn();
-  render(<PaymentStep session={session} onSubmitted={onSubmitted} />);
-  return { onSubmitted, start };
+  const onSessionExpired = vi.fn();
+  render(<PaymentStep session={session} onSubmitted={onSubmitted} onSessionExpired={onSessionExpired} />);
+  return { onSubmitted, onSessionExpired, start };
 }
 
 describe('PaymentStep with the mock provider', () => {
@@ -128,6 +129,14 @@ describe('PaymentStep when things are not straightforward', () => {
     const { onSubmitted } = setup(mockConfig, new ApiError(409, 'COMPANY_ALREADY_ACTIVE', 'This account is already active'));
 
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
+  });
+
+  it('ends the session when the token has expired, instead of offering a "Try again" that can never work', async () => {
+    const { onSessionExpired, onSubmitted } = setup(mockConfig, new ApiError(401, 'UNAUTHORIZED', 'Unauthorized'));
+
+    await waitFor(() => expect(onSessionExpired).toHaveBeenCalledTimes(1));
+    expect(onSubmitted).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 
   it('explains a provider outage, shows the request reference, and recovers on "Try again"', async () => {

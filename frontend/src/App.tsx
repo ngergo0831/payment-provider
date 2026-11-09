@@ -47,7 +47,11 @@ export function App() {
       {!session ? (
         <RegisterPage onRegistered={onRegistered} />
       ) : step.name === 'payment' ? (
-        <PaymentStep session={session} onSubmitted={(paymentId) => setStep({ name: 'activating', paymentId })} />
+        <PaymentStep
+          session={session}
+          onSubmitted={(paymentId) => setStep({ name: 'activating', paymentId })}
+          onSessionExpired={onSessionExpired}
+        />
       ) : step.name === 'activating' ? (
         <ActivationWatcher
           session={session}

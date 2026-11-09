@@ -96,6 +96,29 @@ describe('ActivationWatcher', () => {
     await waitFor(() => expect(onPaymentProblem).toHaveBeenCalled());
   });
 
+  it('"Check again" is not an error if the company was activated in the meantime (the next poll shows it)', async () => {
+    vi.spyOn(api, 'onboardingStatus').mockResolvedValue(status('PENDING_PAYMENT'));
+    vi.spyOn(api, 'startPayment').mockRejectedValue(new ApiError(409, 'COMPANY_ALREADY_ACTIVE', 'This account is already active'));
+    const { onPaymentProblem, onSessionExpired } = setup({ slowAfterMs: 30 });
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Check again now' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check again now' })).toBeEnabled());
+    expect(screen.queryByText(/already active/)).not.toBeInTheDocument();
+    expect(onPaymentProblem).not.toHaveBeenCalled();
+    expect(onSessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('"Check again" with an expired token ends the session', async () => {
+    vi.spyOn(api, 'onboardingStatus').mockResolvedValue(status('PENDING_PAYMENT'));
+    vi.spyOn(api, 'startPayment').mockRejectedValue(new ApiError(401, 'UNAUTHORIZED', 'Unauthorized'));
+    const { onSessionExpired } = setup({ slowAfterMs: 30 });
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Check again now' }));
+
+    await waitFor(() => expect(onSessionExpired).toHaveBeenCalled());
+  });
+
   it('notices a payment that fails AFTER it was submitted (e.g. the bank declines later)', async () => {
     vi.spyOn(api, 'onboardingStatus').mockResolvedValue(status('PENDING_PAYMENT'));
     const getPayment = vi.spyOn(api, 'getPayment').mockResolvedValueOnce(payment('PROCESSING')).mockResolvedValue(payment('FAILED'));

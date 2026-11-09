@@ -38,6 +38,8 @@ export function ActivationWatcher({ session, paymentId, onActive, onPaymentProbl
       const { payment } = await api.startPayment(session.token);
       if (payment.status !== 'PROCESSING' && payment.status !== 'SUCCEEDED') onPaymentProblem();
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'COMPANY_ALREADY_ACTIVE') return; // activated meanwhile: the next poll shows it
+      if (error instanceof ApiError && error.status === 401) return onSessionExpired();
       setCheckError(error instanceof ApiError ? error.message : 'Unexpected error');
     } finally {
       setChecking(false);

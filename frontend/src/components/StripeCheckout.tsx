@@ -1,6 +1,6 @@
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 // loadStripe injects Stripe's script: call it once per key, not on every render.
 const stripeByKey = new Map<string, Promise<Stripe | null>>();
@@ -18,8 +18,32 @@ interface Props {
 
 /** Stripe collects the card details in its own iframe: card numbers never touch our page or our server. */
 export function StripeCheckout({ publishableKey, clientSecret, onSubmitted }: Props) {
+  const stripePromise = stripeFor(publishableKey);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Stripe's script comes from js.stripe.com: a content blocker or a flaky connection can stop it. Without this the
+  // form would just sit there with a disabled Pay button and no explanation.
+  useEffect(() => {
+    let current = true;
+    const failed = () => {
+      stripeByKey.delete(publishableKey); // a reload may succeed: do not remember the failure
+      if (current) setLoadFailed(true);
+    };
+    stripePromise.then((stripe) => stripe || failed(), failed);
+    return () => {
+      current = false;
+    };
+  }, [stripePromise, publishableKey]);
+
+  if (loadFailed) {
+    return (
+      <p role="alert" className="form-error">
+        The secure card form could not be loaded. Check your connection or disable content blockers for this page, then reload.
+      </p>
+    );
+  }
   return (
-    <Elements stripe={stripeFor(publishableKey)} options={{ clientSecret }}>
+    <Elements stripe={stripePromise} options={{ clientSecret }}>
       <CardForm onSubmitted={onSubmitted} />
     </Elements>
   );
