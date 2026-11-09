@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    // Nest 12 packages are ESM-only. "nodenext" lets our CommonJS output load them (Node >= 22.12 can require() ESM).
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+
+    // Nest's dependency injection reads constructor types at runtime through decorator metadata.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    "strict": true,
+    // DTO/entity classes declare fields that are assigned later (by validation / the ORM).
+    "strictPropertyInitialization": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "incremental": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

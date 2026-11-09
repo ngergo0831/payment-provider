@@ -1,0 +1,10 @@
+{
+  // Used by Jest (ESM mode) and by `npm run lint`, which type-checks source AND tests.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "incremental": false
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

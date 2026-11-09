@@ -15,7 +15,15 @@ React · Docker Compose · Swagger
 
 ## Running it
 
-Instructions are added as each part is built.
+Requires Node.js 22.12 or newer. Instructions grow as each part is built.
+
+```bash
+cd backend
+npm install
+npm run start:dev      # API on http://localhost:3000  (try GET /health)
+npm test               # run the tests
+npm run lint           # type-check source and tests
+```
 
 ## Repository contents
 
@@ -23,3 +31,4 @@ Instructions are added as each part is built.
 |---|---|
 | `assignment.txt` | The original take-home assignment |
 | `docs/EXECUTION-PLAN.md` | Step-by-step build plan, one task per commit |
+| `backend/` | NestJS API |
