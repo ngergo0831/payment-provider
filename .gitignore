@@ -1,0 +1,19 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secrets: real values live in .env and must never be committed.
+# .env.example (placeholders only) is the documented template and IS committed.
+.env
+.env.*
+!.env.example
+
+# Local databases created by dev/test tooling
+.pgdata-*
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+Thumbs.db
