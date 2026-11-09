@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { PaymentStep } from './pages/PaymentStep';
 import { RegisterPage } from './pages/RegisterPage';
 import { clearSession, loadSession, saveSession, type Session } from './session';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
+  const [submitted, setSubmitted] = useState(false);
 
   function onRegistered(next: Session) {
     saveSession(next);
@@ -13,6 +15,7 @@ export function App() {
   function signOut() {
     clearSession();
     setSession(null);
+    setSubmitted(false);
   }
 
   return (
@@ -25,7 +28,13 @@ export function App() {
           </button>
         )}
       </header>
-      {session ? <p>Welcome, {session.companyName}. The payment step comes next.</p> : <RegisterPage onRegistered={onRegistered} />}
+      {!session ? (
+        <RegisterPage onRegistered={onRegistered} />
+      ) : submitted ? (
+        <p>Payment submitted. Activating your account…</p>
+      ) : (
+        <PaymentStep session={session} onSubmitted={() => setSubmitted(true)} />
+      )}
     </main>
   );
 }

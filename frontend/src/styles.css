@@ -81,3 +81,26 @@ button.link {
   padding: 0;
   text-decoration: underline;
 }
+.price {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+.actions.wrap {
+  flex-wrap: wrap;
+}
+.check {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+section {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+section section {
+  padding: 0;
+  box-shadow: none;
+}
