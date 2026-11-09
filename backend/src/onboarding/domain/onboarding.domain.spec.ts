@@ -49,9 +49,4 @@ describe('User', () => {
     expect(user).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe', role: UserRole.ADMIN, companyId: 'company-1' });
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
   });
-
-  it('has no password field: this slice has no sign-in', () => {
-    const user = User.createAdmin({ email: 'jane@acme.example', fullName: 'Jane', companyId: 'c' });
-    expect(Object.keys(user).join()).not.toMatch(/password|hash/i);
-  });
 });

@@ -2,6 +2,7 @@ import { OutboxDispatcher } from '../src/payments/application/outbox-dispatcher'
 import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
 import { MOCK_WEBHOOK_SIGNATURE, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
 import { buildOpenApiDocument } from '../src/swagger.setup';
+import { signedMockWebhook } from '../src/testing/mock-webhook';
 import { companyStatus, registerCompany } from './support/companies';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
@@ -46,7 +47,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const { body } = await admin.start().expect(200);
       await simulate(body.payment.providerRef, 'succeed', false).expect(200);
 
-      const hook = provider.signedWebhook(body.payment.providerRef, body.payment.id);
+      const hook = signedMockWebhook(body.payment.providerRef, body.payment.id);
       const res = await deliver(JSON.parse(hook.rawBody.toString())).expect(200);
 
       expect(res.body).toEqual({ received: true, result: 'PROCESSED' });

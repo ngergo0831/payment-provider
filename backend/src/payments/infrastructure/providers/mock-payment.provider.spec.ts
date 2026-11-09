@@ -2,6 +2,7 @@ import { MOCK_WEBHOOK_SIGNATURE, MockOutcome, MockPaymentProvider } from './mock
 import { Money } from '../../domain/money';
 import { PaymentStatus } from '../../domain/payment-status';
 import { describePaymentProviderContract } from '../../../testing/payment-provider.contract';
+import { signedMockWebhook } from '../../../testing/mock-webhook';
 
 describePaymentProviderContract('MockPaymentProvider', () => {
   const provider = new MockPaymentProvider();
@@ -9,7 +10,7 @@ describePaymentProviderContract('MockPaymentProvider', () => {
     provider,
     outage: { start: () => provider.setOutage(true), stop: () => provider.setOutage(false) },
     drive: (providerRef, outcome) => void provider.simulate(providerRef, outcome as MockOutcome),
-    signedWebhook: (providerRef, paymentId) => provider.signedWebhook(providerRef, paymentId),
+    signedWebhook: (providerRef, paymentId) => signedMockWebhook(providerRef, paymentId),
     invalidSignature: 'not-the-signature',
     ignoredWebhook: () => ({ rawBody: Buffer.from(JSON.stringify({ type: 'something.else' })), signature: MOCK_WEBHOOK_SIGNATURE }),
   };

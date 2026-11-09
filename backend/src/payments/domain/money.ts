@@ -52,24 +52,6 @@ export class Money {
     return new Money(amountMinor, code);
   }
 
-  static fromDecimalString(amount: string, currency: string): Money {
-    const code = Money.parseCurrency(currency);
-    const exponent = EXPONENT_BY_CURRENCY[code];
-
-    const match = /^(\d+)(?:\.(\d+))?$/.exec(amount.trim());
-    if (!match) throw new InvalidMoneyError(`"${amount}" is not a plain decimal amount like 49.00`);
-
-    const [, whole, fraction = ''] = match;
-    if (fraction.length > exponent) {
-      throw new InvalidMoneyError(`${code} has ${exponent} decimal places, but "${amount}" has ${fraction.length}`);
-    }
-
-    // BigInt so a huge input is detected instead of silently losing precision.
-    const minor = BigInt(whole + fraction.padEnd(exponent, '0'));
-    if (minor > BigInt(Number.MAX_SAFE_INTEGER)) throw new InvalidMoneyError(`Amount "${amount}" is too large`);
-    return Money.of(Number(minor), code);
-  }
-
   static supportedCurrencies(): readonly CurrencyCode[] {
     return Object.keys(EXPONENT_BY_CURRENCY) as CurrencyCode[];
   }
