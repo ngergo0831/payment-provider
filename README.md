@@ -184,9 +184,37 @@ These dev endpoints answer `404` when `NODE_ENV=production`.
 `GET /checkout-config` (public) tells the browser which provider is active, Stripe's *publishable* key (designed to be public;
 never the secret key) and the price, which is what a payment screen needs.
 
-To use Stripe, put the three settings in `backend/.env` (see `.env.example`), and in the Stripe dashboard point a webhook at
-`POST https://<your-host>/webhooks/payments` for the `payment_intent.*` events. The adapter's logic is covered by tests that run
-offline. To also run the shared provider contract against Stripe's test mode (this creates test payments):
+### Real Stripe (test mode)
+
+You need a Stripe account (no card or business verification is needed for test mode) and its **test** keys from the
+dashboard (Developers → API keys). Stripe cannot reach your laptop, so the **Stripe CLI** receives its webhooks and forwards
+them to the API. The CLI's signing secret is stable for your account, so you fetch it once.
+
+**With Docker** (the CLI runs as an opt-in container):
+
+```bash
+cp .env.example .env     # root .env, git-ignored. Uncomment and fill in PAYMENT_PROVIDER, STRIPE_SECRET_KEY and
+                         # STRIPE_PUBLISHABLE_KEY. Leave STRIPE_WEBHOOK_SECRET for the next step.
+docker compose run --rm stripe-cli listen --print-secret   # prints whsec_...: put it in .env as STRIPE_WEBHOOK_SECRET
+docker compose --profile stripe up -d --build
+```
+
+Open http://localhost:8080, register, and pay with Stripe's test card `4242 4242 4242 4242` (any future expiry, any CVC).
+Other test cards: `4000 0000 0000 0002` is declined, and `4000 0027 6000 3184` asks for 3-D Secure. The account activates
+about a second after Stripe confirms the payment.
+
+**Without Docker** (development): put the same three `STRIPE_*` settings and `PAYMENT_PROVIDER=stripe` in `backend/.env`, then
+run the Stripe CLI on your machine (`npm i -g stripe`, or see Stripe's install page) next to the API:
+
+```bash
+stripe listen --api-key sk_test_... --forward-to localhost:3000/webhooks/payments
+```
+
+A real deployment would instead register `https://<your-host>/webhooks/payments` as a webhook endpoint in the Stripe dashboard
+for the `payment_intent.*` events, and use that endpoint's own signing secret.
+
+The adapter's logic is covered by tests that run offline. To also run the shared provider contract against Stripe's test mode
+(this creates test payments):
 
 ```bash
 cd backend
