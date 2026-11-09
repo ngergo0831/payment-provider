@@ -102,7 +102,7 @@ Rules:
 | [x] | 19 | **Outbox, part 2**: dispatcher with back-off and an attempt cap, idempotent activation consumer, timer. **First full backend flow works** (the mock simulator endpoints moved to task 20, where webhooks make them meaningful) | At-least-once delivery + idempotent consumers; one clock for scheduling decisions | `feat: activate company from outbox` |
 | [x] | 20 | Webhook endpoint (`POST /webhooks/payments`, provider-neutral) with inbox table (duplicates, unknown payments, retries), event is a trigger not truth; plus the dev-only mock simulator endpoints (simulate a payment outcome, with or without its webhook; switch an outage on and off) | Signed webhooks; ordering and replay | `feat: handle provider webhooks` |
 | [x] | 21 | Reconciliation job for lost webhooks (plus a tiny shared `PeriodicTask` timer) | The safety net for "paid but not activated" | `feat: add payment reconciliation` |
-| [ ] | 22 | `StripePaymentProvider` adapter; contract suite runs against it when Stripe test keys are present; webhook signature tests | Mapping Stripe states and errors into ours | `feat: add Stripe adapter` |
+| [x] | 22 | `StripePaymentProvider` adapter (offline-verified; not yet run against Stripe's servers: no API key available); contract suite runs against it when Stripe test keys are present; webhook signature tests | Mapping Stripe states and errors into ours | `feat: add Stripe adapter` |
 | [ ] | 23 | Provider selection by config, public checkout config, Stripe-signed webhook e2e (raw body) | The raw-body pitfall | `feat: wire Stripe provider` |
 | [ ] | 24 | Safe logging: payment id + request id on every line, PII/card-data redaction, tests | Logs are a data-leak surface | `feat: add safe payment logging` |
 

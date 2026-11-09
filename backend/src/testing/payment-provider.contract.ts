@@ -21,6 +21,8 @@ export interface ContractSubject {
   outage?: { start(): void; stop(): void };
   /** Move a remote payment into a state, as the customer or bank would. */
   drive?: (providerRef: string, outcome: RemoteOutcome) => void | Promise<void>;
+  /** Which outcomes `drive` can really produce. Omit = all. (A real card payment never visibly sits in "processing".) */
+  supportedOutcomes?: RemoteOutcome[];
   /** Build a correctly signed webhook delivery for the given payment. */
   signedWebhook?: (providerRef: string, paymentId: string) => { rawBody: Buffer; signature: string };
   /** A signature value that must be rejected. */
@@ -54,6 +56,10 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
       subject = makeSubject();
       provider = subject.provider;
     });
+
+    /** Can this provider be driven into that outcome? */
+    const canDrive = (...outcomes: RemoteOutcome[]) =>
+      outcomes.every((outcome) => probe.drive && (!probe.supportedOutcomes || probe.supportedOutcomes.includes(outcome)));
 
     const itIf = (capability: unknown, title: string, test: () => Promise<void> | void) =>
       (capability ? it : it.skip)(`${title}${capability ? '' : ' [not supported by this provider]'}`, async () => {
@@ -125,7 +131,7 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
     });
 
     describe('payment states (the provider is the source of truth)', () => {
-      itIf(probe.drive, 'SUCCEEDED: reported as SUCCEEDED, and the client secret is gone (nothing left to collect)', async () => {
+      itIf(canDrive('succeed'), 'SUCCEEDED: reported as SUCCEEDED, and the client secret is gone (nothing left to collect)', async () => {
         const { providerRef } = await provider.createPayment(input());
         await subject.drive!(providerRef, 'succeed');
 
@@ -136,7 +142,7 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(state.failureCode).toBeNull();
       });
 
-      itIf(probe.drive, 'FAILED: reports a failure reason, and the secret stays so the customer can retry with another card', async () => {
+      itIf(canDrive('decline'), 'FAILED: reports a failure reason, and the secret stays so the customer can retry with another card', async () => {
         const { providerRef } = await provider.createPayment(input());
         await subject.drive!(providerRef, 'decline');
 
@@ -147,7 +153,7 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(state.clientSecret).toEqual(expect.any(String));
       });
 
-      itIf(probe.drive, 'a failed payment can still succeed on retry (a declined card is not the end)', async () => {
+      itIf(canDrive('decline', 'succeed'), 'a failed payment can still succeed on retry (a declined card is not the end)', async () => {
         const { providerRef } = await provider.createPayment(input());
         await subject.drive!(providerRef, 'decline');
         await subject.drive!(providerRef, 'succeed');
@@ -157,17 +163,19 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(state.failureCode).toBeNull();
       });
 
-      itIf(probe.drive, 'REQUIRES_ACTION and PROCESSING are reported as such', async () => {
-        const a = await provider.createPayment(input());
-        const b = await provider.createPayment(input());
-        await subject.drive!(a.providerRef, 'require_action');
-        await subject.drive!(b.providerRef, 'processing');
-
-        expect((await provider.retrievePayment(a.providerRef)).status).toBe(PaymentStatus.REQUIRES_ACTION);
-        expect((await provider.retrievePayment(b.providerRef)).status).toBe(PaymentStatus.PROCESSING);
+      itIf(canDrive('require_action'), 'REQUIRES_ACTION is reported as such', async () => {
+        const { providerRef } = await provider.createPayment(input());
+        await subject.drive!(providerRef, 'require_action');
+        expect((await provider.retrievePayment(providerRef)).status).toBe(PaymentStatus.REQUIRES_ACTION);
       });
 
-      itIf(probe.drive, 'CANCELED: reported as CANCELED with no client secret', async () => {
+      itIf(canDrive('processing'), 'PROCESSING is reported as such', async () => {
+        const { providerRef } = await provider.createPayment(input());
+        await subject.drive!(providerRef, 'processing');
+        expect((await provider.retrievePayment(providerRef)).status).toBe(PaymentStatus.PROCESSING);
+      });
+
+      itIf(canDrive('cancel'), 'CANCELED: reported as CANCELED with no client secret', async () => {
         const { providerRef } = await provider.createPayment(input());
         await subject.drive!(providerRef, 'cancel');
 
@@ -176,7 +184,7 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(state.clientSecret).toBeNull();
       });
 
-      itIf(probe.drive, 'a SUCCEEDED payment stays SUCCEEDED whatever happens afterwards', async () => {
+      itIf(canDrive('succeed', 'decline', 'cancel'), 'a SUCCEEDED payment stays SUCCEEDED whatever happens afterwards', async () => {
         const { providerRef } = await provider.createPayment(input());
         await subject.drive!(providerRef, 'succeed');
         await subject.drive!(providerRef, 'decline');
@@ -185,7 +193,7 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect((await provider.retrievePayment(providerRef)).status).toBe(PaymentStatus.SUCCEEDED);
       });
 
-      itIf(probe.drive, 'creating again after the payment moved on still returns the CURRENT state (idempotent create is not a reset)', async () => {
+      itIf(canDrive('succeed'), 'creating again after the payment moved on still returns the CURRENT state (idempotent create is not a reset)', async () => {
         const request = input();
         const created = await provider.createPayment(request);
         await subject.drive!(created.providerRef, 'succeed');
