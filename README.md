@@ -18,13 +18,18 @@ React · Docker Compose · Swagger
 Requires Node.js 22.12 or newer. Instructions grow as each part is built.
 
 ```bash
+docker compose up -d   # from the repository root: the database (see "Database" below)
 cd backend
 npm install
+cp .env.example .env   # required: DATABASE_URL has no default (see "Configuration")
 npm run start:dev      # API on http://localhost:3000  (try GET /health)
                        # Swagger UI: http://localhost:3000/docs   (raw OpenAPI: /docs-json)
-npm test               # run the tests
+npm test               # unit tests: fast, need no database
+npm run test:e2e       # end-to-end tests: need the database; each file uses its own throw-away DB
 npm run lint           # type-check source and tests
 ```
+
+`GET /health` answers `200` when the database is reachable and `503` when it is not.
 
 ## Database
 
@@ -48,10 +53,16 @@ prints every problem and exits instead of starting half-configured.
 
 ```bash
 cd backend
-cp .env.example .env   # optional: all settings have defaults
+cp .env.example .env   # required once: DATABASE_URL has no default
 ```
 
 Real environment variables override values in `.env`. Each setting is documented in `backend/.env.example`.
+
+### Migrations
+
+The schema is owned by migrations only (`synchronize` is off). Pending migrations are applied automatically when the app
+starts. From `backend/`: `npm run migration:show` lists them, `migration:run` applies them, `migration:revert` undoes the
+last one.
 
 ## Error format
 

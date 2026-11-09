@@ -1,20 +1,25 @@
 import { Environment, validateEnv } from './env.validation';
 
+const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
+/** The smallest valid environment: everything else has a default. */
+const valid = { DATABASE_URL };
+
 describe('validateEnv', () => {
-  it('applies defaults when nothing is set', () => {
-    const env = validateEnv({});
+  it('applies defaults for everything except DATABASE_URL', () => {
+    const env = validateEnv(valid);
     expect(env.NODE_ENV).toBe(Environment.Development);
     expect(env.PORT).toBe(3000);
+    expect(env.DATABASE_URL).toBe(DATABASE_URL);
   });
 
   it('converts PORT from a string to a number', () => {
-    const env = validateEnv({ PORT: '8080', NODE_ENV: 'production' });
+    const env = validateEnv({ ...valid, PORT: '8080', NODE_ENV: 'production' });
     expect(env.PORT).toBe(8080);
     expect(env.NODE_ENV).toBe(Environment.Production);
   });
 
   it('ignores unrelated variables (process.env contains hundreds)', () => {
-    expect(() => validateEnv({ PATH: '/usr/bin', HOME: '/home/x' })).not.toThrow();
+    expect(() => validateEnv({ ...valid, PATH: '/usr/bin', HOME: '/home/x' })).not.toThrow();
   });
 
   it.each([
@@ -24,19 +29,60 @@ describe('validateEnv', () => {
     ['a decimal', '30.5'],
     ['empty', ''],
   ])('rejects PORT that is %s', (_label, port) => {
-    expect(() => validateEnv({ PORT: port })).toThrow(/PORT/);
+    expect(() => validateEnv({ ...valid, PORT: port })).toThrow(/PORT/);
   });
 
   it('gives one clear message per variable (non-numeric PORT is "not an integer", not "too large")', () => {
-    expect(() => validateEnv({ PORT: 'abc' })).toThrow('PORT must be an integer number');
-    expect(() => validateEnv({ PORT: 'abc' })).not.toThrow(/greater than|less than/);
+    expect(() => validateEnv({ ...valid, PORT: 'abc' })).toThrow('PORT must be an integer number');
+    expect(() => validateEnv({ ...valid, PORT: 'abc' })).not.toThrow(/greater than|less than/);
   });
 
   it('rejects an unknown NODE_ENV', () => {
-    expect(() => validateEnv({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+    expect(() => validateEnv({ ...valid, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });
 
   it('reports every problem at once, not just the first', () => {
-    expect(() => validateEnv({ PORT: 'abc', NODE_ENV: 'staging' })).toThrow(/PORT[\s\S]*NODE_ENV|NODE_ENV[\s\S]*PORT/);
+    expect.assertions(3);
+    try {
+      validateEnv({ PORT: 'abc', NODE_ENV: 'staging' }); // and DATABASE_URL missing
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain('PORT');
+      expect(message).toContain('NODE_ENV');
+      expect(message).toContain('DATABASE_URL');
+    }
+  });
+
+  describe('DATABASE_URL', () => {
+    it('is required', () => {
+      expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
+    });
+
+    it.each([
+      ['postgres://', 'postgres://payments:pw@localhost:5432/payments'],
+      ['postgresql://', 'postgresql://payments:pw@db.internal:5432/payments'],
+      ['no password', 'postgres://localhost/payments'],
+    ])('accepts a %s URL', (_label, url) => {
+      expect(() => validateEnv({ DATABASE_URL: url })).not.toThrow();
+    });
+
+    it.each([
+      ['another database engine', 'mysql://root:pw@localhost:3306/db'],
+      ['no protocol', 'localhost:5432/payments'],
+      ['not a URL at all', 'banana'],
+      ['empty', ''],
+    ])('rejects %s', (_label, url) => {
+      expect(() => validateEnv({ DATABASE_URL: url })).toThrow(/DATABASE_URL/);
+    });
+
+    it('never puts the password in the error message', () => {
+      expect.assertions(2);
+      try {
+        validateEnv({ DATABASE_URL: 'mysql://root:hunter2-secret@localhost:3306/db' });
+      } catch (error) {
+        expect((error as Error).message).toContain('DATABASE_URL');
+        expect((error as Error).message).not.toContain('hunter2-secret');
+      }
+    });
   });
 });

@@ -4,6 +4,10 @@ import { Environment, validateEnv } from './env.validation';
 export interface AppConfig {
   nodeEnv: Environment;
   port: number;
+  database: {
+    /** Contains the password: pass it to the driver, never log it. */
+    url: string;
+  };
 }
 
 /**
@@ -15,5 +19,6 @@ export const configuration = (): AppConfig => {
   return {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
+    database: { url: env.DATABASE_URL },
   };
 };

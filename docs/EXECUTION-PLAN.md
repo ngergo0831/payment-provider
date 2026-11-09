@@ -77,7 +77,7 @@ Rules:
 | Done | # | Task | What you'll learn | Commit message |
 |---|---|---|---|---|
 | [x] | 6 | `docker-compose.yml` with **only Postgres** and a healthcheck | Running infrastructure locally | `chore: add Postgres via docker compose` |
-| [ ] | 7 | TypeORM connection and migration runner (no tables yet); `/health` now checks the DB | Why `synchronize` is off and migrations own the schema | `feat: connect to PostgreSQL with migrations` |
+| [x] | 7 | TypeORM connection and migration runner (no tables yet); `/health` now checks the DB | Why `synchronize` is off and migrations own the schema | `feat: connect to PostgreSQL with migrations` |
 
 ## Phase 2 · Minimal registration (thin by design)
 

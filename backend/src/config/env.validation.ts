@@ -1,5 +1,5 @@
 import { plainToInstance, Type } from 'class-transformer';
-import { IsEnum, IsInt, Max, Min, validateSync } from 'class-validator';
+import { IsEnum, IsInt, IsUrl, Max, Min, validateSync } from 'class-validator';
 
 export enum Environment {
   Development = 'development',
@@ -24,6 +24,11 @@ export class EnvironmentVariables {
   @Min(1)
   @IsInt()
   PORT: number = 3000;
+
+  // Required, no default: a connection string carries credentials and must be supplied by the environment.
+  // Validation messages name the variable, never its value, so the password cannot leak into error output.
+  @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
+  DATABASE_URL: string;
 }
 
 /**

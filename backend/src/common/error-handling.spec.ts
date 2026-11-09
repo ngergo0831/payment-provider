@@ -5,7 +5,6 @@ import { Type } from 'class-transformer';
 import { IsEmail, IsString, Length, ValidateNested } from 'class-validator';
 import request from 'supertest';
 import { configureApp } from '../app.setup';
-import { AppModule } from '../app.module';
 import { DomainException, ErrorKind } from './errors/domain.exception';
 import { ErrorCode } from './errors/error-codes';
 
@@ -45,6 +44,11 @@ class FailureController {
     return body;
   }
 
+  @Get('ok')
+  ok(): { ok: true } {
+    return { ok: true };
+  }
+
   @Get('conflict')
   conflict(): never {
     throw new AlreadyExistsException();
@@ -70,7 +74,7 @@ describe('global error handling', () => {
   let error: ReturnType<typeof jest.spyOn>;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers: [FailureController] }).compile();
+    const moduleRef = await Test.createTestingModule({ controllers: [FailureController] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
     await app.init();
@@ -179,7 +183,7 @@ describe('global error handling', () => {
     });
 
     it('reuses a safe id supplied by the caller (e.g. an API gateway)', async () => {
-      const res = await http.get('/health').set('x-request-id', 'gateway-trace_42.a').expect(200);
+      const res = await http.get('/test/ok').set('x-request-id', 'gateway-trace_42.a').expect(200);
       expect(res.headers['x-request-id']).toBe('gateway-trace_42.a');
     });
 
@@ -187,7 +191,7 @@ describe('global error handling', () => {
       ['spaces and symbols', 'bad id; drop table'],
       ['too long', 'x'.repeat(200)],
     ])('replaces an unsafe caller-supplied id (%s), which could be used to forge log lines', async (_label, unsafe) => {
-      const res = await http.get('/health').set('x-request-id', unsafe).expect(200);
+      const res = await http.get('/test/ok').set('x-request-id', unsafe).expect(200);
       expect(res.headers['x-request-id']).not.toBe(unsafe);
       expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
     });
@@ -195,7 +199,7 @@ describe('global error handling', () => {
 
   describe('security headers (helmet)', () => {
     it('does not advertise the framework and sets basic protections', async () => {
-      const res = await http.get('/health').expect(200);
+      const res = await http.get('/test/ok').expect(200);
 
       expect(res.headers['x-powered-by']).toBeUndefined();
       expect(res.headers['x-content-type-options']).toBe('nosniff');
