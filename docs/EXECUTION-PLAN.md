@@ -121,7 +121,7 @@ Rules:
 |---|---|---|---|
 | [x] | 29 | Dockerfiles, nginx, full `docker compose up` | `chore: containerize backend and frontend` |
 | [x] | 30 | Stripe CLI profile and a real test-mode walkthrough (needs Stripe keys) | `chore: add Stripe CLI profile` |
-| [ ] | 31 | `DESIGN.md`, `PRESENTATION.md` (including the AI-usage slide the assignment requires), final README | `docs: add design and presentation` |
+| [-] | 31 | ~~`DESIGN.md`, `PRESENTATION.md`~~ **Dropped on request:** the README is the entry point, and the ADRs in `docs/adr/` hold the design decisions | n/a |
 
 ## Notes
 
