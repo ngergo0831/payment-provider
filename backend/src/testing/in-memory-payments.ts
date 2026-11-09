@@ -38,12 +38,12 @@ export class InMemoryPaymentRepository extends PaymentRepository {
   }
 
   async findOpenByCompany(companyId: string): Promise<Payment | null> {
-    return this.all().find((payment) => payment.companyId === companyId && payment.isOpen()) ?? null;
+    return this.all().find((payment) => payment.companyId === companyId && !payment.isFinal()) ?? null;
   }
 
   async findDueForReconciliation(query: { notSyncedSince: Date; createdAfter: Date; limit: number }): Promise<Payment[]> {
     return this.all()
-      .filter((payment) => payment.isOpen() && payment.providerRef !== null)
+      .filter((payment) => !payment.isFinal() && payment.providerRef !== null)
       .filter((payment) => payment.createdAt > query.createdAfter)
       .filter((payment) => (payment.lastSyncedAt ?? payment.createdAt) < query.notSyncedSince)
       .sort((a, b) => (a.lastSyncedAt ?? a.createdAt).getTime() - (b.lastSyncedAt ?? b.createdAt).getTime())
@@ -51,7 +51,7 @@ export class InMemoryPaymentRepository extends PaymentRepository {
   }
 
   async insert(payment: Payment): Promise<void> {
-    if (this.all().some((existing) => existing.companyId === payment.companyId && existing.isOpen())) {
+    if (this.all().some((existing) => existing.companyId === payment.companyId && !existing.isFinal())) {
       throw new OpenPaymentAlreadyExistsError();
     }
     this.rows.set(payment.id, payment.toSnapshot());

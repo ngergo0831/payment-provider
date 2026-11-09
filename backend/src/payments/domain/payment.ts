@@ -97,14 +97,9 @@ export class Payment {
     return this.state.status === PaymentStatus.SUCCEEDED;
   }
 
-  /** Final = nothing can happen to it any more. */
+  /** Final = nothing can happen to it any more. A payment that is not final is "open": the customer can still (re)try paying. */
   isFinal(): boolean {
     return isFinal(this.state.status);
-  }
-
-  /** Open = the customer can still (re)try paying. */
-  isOpen(): boolean {
-    return !this.isFinal();
   }
 
   /**

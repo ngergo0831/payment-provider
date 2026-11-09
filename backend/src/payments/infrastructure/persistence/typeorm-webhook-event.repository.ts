@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { InboundEvent, StoredInboundEvent, WebhookEventRepository } from '../../application/ports/repositories';
+import { InboundEvent, InboxEntry, WebhookEventRepository } from '../../application/ports/repositories';
 import { WebhookEventRecord } from './webhook-event.record';
 
 @Injectable()
@@ -10,7 +10,7 @@ export class TypeOrmWebhookEventRepository extends WebhookEventRepository {
     super();
   }
 
-  async recordIfNew(event: InboundEvent): Promise<StoredInboundEvent> {
+  async recordIfNew(event: InboundEvent): Promise<InboxEntry> {
     // INSERT ... ON CONFLICT DO NOTHING: when the same event arrives twice at the same moment, one insert wins and
     // the other quietly does nothing. Neither errors, and both then read the same stored row.
     await this.records
@@ -22,7 +22,7 @@ export class TypeOrmWebhookEventRepository extends WebhookEventRepository {
       .execute();
 
     const stored = await this.records.findOneByOrFail({ providerEventId: event.id });
-    return { id: stored.providerEventId, type: stored.type, receivedAt: stored.receivedAt, processedAt: stored.processedAt };
+    return { alreadyProcessed: stored.processedAt !== null };
   }
 
   async markProcessed(eventId: string): Promise<void> {

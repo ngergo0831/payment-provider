@@ -21,7 +21,6 @@ export class InMemoryOnboarding {
   };
 
   readonly userRepository: UserRepository = {
-    findById: async (id) => this.users.get(id) ?? null,
     findByEmail: async (email) => [...this.users.values()].find((user) => user.email === email) ?? null,
   };
 

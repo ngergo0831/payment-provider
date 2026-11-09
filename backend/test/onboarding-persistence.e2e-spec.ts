@@ -69,15 +69,19 @@ describe('onboarding persistence (real PostgreSQL)', () => {
   });
 
   describe('creating a company with its admin', () => {
-    it('stores both, and the user is found by id and by email', async () => {
+    it('stores both, and the user is found by email', async () => {
       const c = company();
       const u = admin(c.id, 'jane@acme.example');
 
       await accounts.createCompanyWithAdmin(c, u);
 
       expect(await companies.findById(c.id)).not.toBeNull();
-      expect(await users.findByEmail('jane@acme.example')).toMatchObject({ id: u.id, companyId: c.id, role: UserRole.ADMIN });
-      expect(await users.findById(u.id)).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe' });
+      expect(await users.findByEmail('jane@acme.example')).toMatchObject({
+        id: u.id,
+        companyId: c.id,
+        role: UserRole.ADMIN,
+        fullName: 'Jane Doe',
+      });
     });
 
     it('returns null when no user has that email', async () => {

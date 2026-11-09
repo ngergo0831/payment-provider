@@ -31,10 +31,6 @@ export class TypeOrmUserRepository extends UserRepository {
     super();
   }
 
-  findById(id: string): Promise<User | null> {
-    return this.repository.findOneBy({ id });
-  }
-
   findByEmail(email: string): Promise<User | null> {
     return this.repository.findOneBy({ email });
   }

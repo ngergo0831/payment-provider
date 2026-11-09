@@ -40,7 +40,7 @@ describe('HandleProviderEventUseCase', () => {
     expect(await handle.execute(event)).toBe(EventHandlingResult.PROCESSED);
 
     expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
-    expect(inbox.rows.get(event.id)?.processedAt).toBeInstanceOf(Date);
+    expect(inbox.processedAt.get(event.id)).toBeInstanceOf(Date);
     expect(payments.outbox).toHaveLength(1); // "payment succeeded" queued
   });
 
@@ -97,7 +97,7 @@ describe('HandleProviderEventUseCase', () => {
 
       expect(await handle.execute(stranger)).toBe(EventHandlingResult.UNKNOWN_PAYMENT);
 
-      expect(inbox.rows.get('evt_x')?.processedAt).toBeInstanceOf(Date);
+      expect(inbox.processedAt.get('evt_x')).toBeInstanceOf(Date);
     });
 
     it('are not matched through a payment id that already belongs to a DIFFERENT provider payment', async () => {
@@ -132,7 +132,7 @@ describe('HandleProviderEventUseCase', () => {
       provider.setOutage(true);
 
       await expect(handle.execute(event)).rejects.toBeInstanceOf(PaymentProviderUnavailableException);
-      expect(inbox.rows.get(event.id)?.processedAt).toBeNull();
+      expect(inbox.processedAt.get(event.id)).toBeNull();
       expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.CREATED);
 
       provider.setOutage(false); // the provider retries its webhook

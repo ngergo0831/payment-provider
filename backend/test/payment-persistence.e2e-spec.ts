@@ -316,10 +316,14 @@ describe('payment persistence (real PostgreSQL)', () => {
   describe('webhook inbox', () => {
     const event = (id: string) => ({ id, type: 'payment_intent.succeeded', payload: { data: { object: { id: 'pi_1' } }, n: 1 } });
 
-    it('records a new event as unprocessed', async () => {
-      const stored = await webhookEvents.recordIfNew(event('evt_new'));
-      expect(stored).toMatchObject({ id: 'evt_new', type: 'payment_intent.succeeded', processedAt: null });
-      expect(stored.receivedAt).toBeInstanceOf(Date);
+    it('records a new event as not yet processed', async () => {
+      expect(await webhookEvents.recordIfNew(event('evt_new'))).toEqual({ alreadyProcessed: false });
+
+      const [row] = await queryDatabase<{ type: string; processed_at: Date | null }>(
+        t.databaseUrl,
+        "SELECT type, processed_at FROM webhook_events WHERE provider_event_id = 'evt_new'",
+      );
+      expect(row).toEqual({ type: 'payment_intent.succeeded', processed_at: null });
     });
 
     it('stores the payload as JSON, exactly', async () => {
@@ -328,11 +332,10 @@ describe('payment persistence (real PostgreSQL)', () => {
       expect(row.payload).toEqual({ data: { object: { id: 'pi_1' } }, n: 1 });
     });
 
-    it('returns the SAME stored row for a duplicate, and does not store a second copy', async () => {
-      const first = await webhookEvents.recordIfNew(event('evt_dup'));
-      const second = await webhookEvents.recordIfNew(event('evt_dup'));
+    it('does not store a second copy of a duplicate', async () => {
+      await webhookEvents.recordIfNew(event('evt_dup'));
+      await webhookEvents.recordIfNew(event('evt_dup'));
 
-      expect(second.receivedAt).toEqual(first.receivedAt);
       expect(await queryDatabase(t.databaseUrl, "SELECT 1 FROM webhook_events WHERE provider_event_id = 'evt_dup'")).toHaveLength(1);
     });
 
@@ -340,14 +343,12 @@ describe('payment persistence (real PostgreSQL)', () => {
       await webhookEvents.recordIfNew(event('evt_done'));
       await webhookEvents.markProcessed('evt_done');
 
-      const again = await webhookEvents.recordIfNew(event('evt_done'));
-      expect(again.processedAt).toBeInstanceOf(Date);
+      expect(await webhookEvents.recordIfNew(event('evt_done'))).toEqual({ alreadyProcessed: true });
     });
 
     it('keeps an unfinished event unprocessed, so the provider\'s retry gets handled', async () => {
       await webhookEvents.recordIfNew(event('evt_unfinished')); // handler crashed before markProcessed
-      const retry = await webhookEvents.recordIfNew(event('evt_unfinished'));
-      expect(retry.processedAt).toBeNull();
+      expect(await webhookEvents.recordIfNew(event('evt_unfinished'))).toEqual({ alreadyProcessed: false });
     });
 
     it('survives five simultaneous deliveries of the same event: one row, no errors', async () => {

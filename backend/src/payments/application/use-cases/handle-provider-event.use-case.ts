@@ -36,8 +36,8 @@ export class HandleProviderEventUseCase {
   ) {}
 
   async execute(event: ProviderEvent): Promise<EventHandlingResult> {
-    const stored = await this.inbox.recordIfNew({ id: event.id, type: event.type, payload: event.raw });
-    if (stored.processedAt) return EventHandlingResult.DUPLICATE;
+    const { alreadyProcessed } = await this.inbox.recordIfNew({ id: event.id, type: event.type, payload: event.raw });
+    if (alreadyProcessed) return EventHandlingResult.DUPLICATE;
 
     const payment = await this.locate(event);
     if (!payment) {

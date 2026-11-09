@@ -24,7 +24,7 @@ describe('Payment.start', () => {
       updatedAt: T0,
     });
     expect(payment.amount.equals(Money.of(4900, 'USD'))).toBe(true);
-    expect(payment.isOpen()).toBe(true);
+    expect(payment.isFinal()).toBe(false);
   });
 
   it('gets a unique id', () => {
@@ -45,7 +45,6 @@ describe('Payment.applyStatus', () => {
     expect(payment.applyStatus(SUCCEEDED)).toBe(TransitionOutcome.APPLIED);
     expect(payment.isSucceeded()).toBe(true);
     expect(payment.isFinal()).toBe(true);
-    expect(payment.isOpen()).toBe(false);
   });
 
   it('treats a repeat of the same status as UNCHANGED, so a duplicated message is harmless', () => {
@@ -98,7 +97,7 @@ describe('Payment.applyStatus', () => {
       const payment = newPayment();
       payment.applyStatus(FAILED, 'insufficient_funds');
       expect(payment).toMatchObject({ status: FAILED, failureCode: 'insufficient_funds' });
-      expect(payment.isOpen()).toBe(true); // still retryable
+      expect(payment.isFinal()).toBe(false); // still retryable
     });
 
     it('lets the customer retry on the same payment, and clears the old failure reason', () => {

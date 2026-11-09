@@ -14,7 +14,6 @@ export abstract class CompanyRepository {
 }
 
 export abstract class UserRepository {
-  abstract findById(id: string): Promise<User | null>;
   /** Exact match: callers normalise the email to lower case first. */
   abstract findByEmail(email: string): Promise<User | null>;
 }

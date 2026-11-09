@@ -80,20 +80,17 @@ export interface InboundEvent {
   payload: unknown;
 }
 
-export interface StoredInboundEvent {
-  id: string;
-  type: string;
-  receivedAt: Date;
-  /** Null until fully handled: a stored-but-unprocessed event must be processed again when the provider retries. */
-  processedAt: Date | null;
+export interface InboxEntry {
+  /**
+   * True only once the event was FULLY handled. A stored-but-unfinished event (we crashed, the provider was down)
+   * reports false, so the provider's retry is processed again instead of being skipped as a duplicate.
+   */
+  alreadyProcessed: boolean;
 }
 
 export abstract class WebhookEventRepository {
-  /**
-   * Stores the event if it has not been seen, and returns the stored row either way. The caller can then tell
-   * "already fully processed" (skip) from "seen but never finished" (process again). Safe under concurrent duplicates.
-   */
-  abstract recordIfNew(event: InboundEvent): Promise<StoredInboundEvent>;
+  /** Stores the event if it has not been seen, and reports whether it was already handled. Safe under concurrent duplicates. */
+  abstract recordIfNew(event: InboundEvent): Promise<InboxEntry>;
 
   abstract markProcessed(eventId: string): Promise<void>;
 }

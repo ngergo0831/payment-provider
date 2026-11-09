@@ -64,6 +64,5 @@ import { WebhooksController } from './presentation/webhooks.controller';
       },
     },
   ],
-  exports: [PaymentRepository, WebhookEventRepository, PaymentProvider, OutboxDispatcher, ReconcilePaymentsUseCase],
 })
 export class PaymentsModule {}

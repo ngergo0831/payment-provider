@@ -28,6 +28,7 @@ import { OnboardingController } from './presentation/onboarding.controller';
     { provide: UserRepository, useClass: TypeOrmUserRepository },
     { provide: AccountRepository, useClass: TypeOrmAccountRepository },
   ],
-  exports: [RegisterCompanyAdminUseCase, ActivateCompanyUseCase, CompanyRepository, UserRepository, AccountRepository],
+  // What other modules may use: registration (auth), and reading/activating a company (payments). Nothing more.
+  exports: [RegisterCompanyAdminUseCase, ActivateCompanyUseCase, CompanyRepository],
 })
 export class OnboardingModule {}
