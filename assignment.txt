@@ -1,0 +1,58 @@
+Assignment
+Take-home assignment I Medior Backend Engineer
+
+
+Scenario
+
+Software products and services used by businesses often win or lose customers during onboarding. A new company admin expects to create an account, enter user and business information, complete the required setup steps, and start using the product without confusion or delay. In real systems, though, onboarding depends on integrations such as identity, payment, or business verification, and those dependencies may fail, respond asynchronously, or require follow-up handling before the customer can move forward.
+
+Your goal is to design and implement a focused end-to-end slice of a self-serve onboarding flow for a software product or service used by businesses. Your solution should collect user and business information, then go deep on one integration point of your choice, such as identity, payment, business verification, or another relevant dependency. Examples of suitable services include Auth0 for identity, Stripe for payments, or Hunter.io for business/contact verification, but mocked integrations are also acceptable. You are not expected to design or build the full onboarding platform. The chosen integration may be real or mocked, but the contract and failure behavior should be explicit.
+
+Clearly identify a problem using this format:
+
+"As a company admin, I need [capability] so that [outcome]."
+
+Examples:
+
+"As a company admin, I need to create an account, register my business, and complete identity verification so that my team can start using the software without waiting for manual setup."
+
+"As a company admin, I need to sign up, enter billing details, and complete payment so that my account can be activated immediately on success and recover safely from payment failures or delayed confirmations."
+
+"As a company admin, I need to submit my business details for verification so that I can start using the product once my company passes vetting, even if the review process is asynchronous or requires additional information."
+
+We intentionally designed this exercise to be open-ended, allowing us to assess how you navigate ambiguity and showcase your expertise. While execution is key, our evaluation will be based not only on the technical depth you demonstrate, but also on the problem you choose to solve and what you decide to build versus describe. Your selection and approach will directly reflect how we assess your skill level and capabilities.
+
+A strong scenario choice should demonstrate how you think about backend systems behind customer-facing web applications, especially around integrations, failure handling, and asynchronous workflows. It should also show that you can define a focused problem, communicate tradeoffs clearly to stakeholders and PMs, and use AI coding assistants and generative AI tools effectively as part of your approach.
+
+
+
+Technical Requirements
+We understand this is a comprehensive set of technical requirements, and we don't expect every candidate to fully address every aspect in their initial submission. Your ability to tackle these requirements will help us gauge your level of experience. Please go as far as you can, and note that you'll have an opportunity to further explore or expand your solution during the in-person collaborative exercise.
+
+Your solution should clearly address the following with justifications.
+
+Architecture for the selected scenario: Explain the structure of your chosen slice, the main components involved, and why this architecture is appropriate for the scenario you selected.
+
+Integration boundaries: Describe how your chosen integration fits into the system, and how you think about other relevant boundaries such as external APIs, persistence, events, queues, or storage. If an integration is mocked, make the contract explicit.
+
+Failure scenarios and recovery: Explain how your solution handles invalid or incomplete user-provided data, unavailable dependencies, and other recovery scenarios. Clarify what the user experiences and how the system returns to a valid state.
+
+Tradeoffs and decision-making: Explain the main technical and product tradeoffs in your approach, what alternatives you considered, and how you would communicate those decisions clearly to PMs and other stakeholders.
+
+Scope decisions: Explain how you chose a reasonable slice, what you implemented, what you intentionally left out, and why those decisions were appropriate for the available time.
+
+AI tool usage: Identify how you used AI while building the solution. Call out at least one area where an AI-generated answer would have been risky if accepted without verification, what could have gone wrong, and how you verified or corrected it.
+
+
+
+Pre-Work (At-Home Preparation)
+For the take-home, we expect three things:
+
+Working prototype — a focused end-to-end slice of the onboarding flow with one integration point explored in depth
+
+Presentation — a concise technical walkthrough (3–5 slides, ~15 minutes) summarizing the problem you chose, your architecture and integration approach, failure scenarios and recovery, key tradeoffs, scope decisions, and AI usage
+
+Optional extra documentation — short supporting notes, such as technical design notes, integration notes, or a brief explanation of what was built versus described, to help the interview team review your work ahead of the live session
+
+
+To complete this assignment, it should take you no longer than 5-6 hours of actual work. 
