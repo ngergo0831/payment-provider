@@ -15,9 +15,9 @@ import { GetPaymentUseCase } from './application/use-cases/get-payment.use-case'
 import { HandleProviderEventUseCase } from './application/use-cases/handle-provider-event.use-case';
 import { ReconcilePaymentsUseCase } from './application/use-cases/reconcile-payments.use-case';
 import { StartPaymentUseCase } from './application/use-cases/start-payment.use-case';
-import { ConfigPlanPricing, OnboardingCompanyActivation, OnboardingCompanyGateway } from './infrastructure/onboarding-company.gateway';
-import { OutboxScheduler } from './infrastructure/outbox.scheduler';
-import { ReconciliationScheduler } from './infrastructure/reconciliation.scheduler';
+import { ConfigPlanPricing } from './infrastructure/config-plan-pricing';
+import { OnboardingCompanyActivation, OnboardingCompanyGateway } from './infrastructure/onboarding-company.gateway';
+import { PaymentBackgroundJobs } from './infrastructure/payment-background-jobs';
 import { OutboxRecord } from './infrastructure/persistence/outbox.record';
 import { PaymentRecord } from './infrastructure/persistence/payment.record';
 import { TypeOrmOutboxRepository } from './infrastructure/persistence/typeorm-outbox.repository';
@@ -39,11 +39,10 @@ import { WebhooksController } from './presentation/webhooks.controller';
     GetPaymentUseCase,
     HandleProviderEventUseCase,
     ReconcilePaymentsUseCase,
-    ReconciliationScheduler,
     PaymentSynchronizer,
     OutboxDispatcher,
-    OutboxScheduler,
     PaymentSucceededHandler,
+    PaymentBackgroundJobs,
     // The handlers the dispatcher can deliver to. Supporting a new message type means adding a handler here.
     { provide: OUTBOX_HANDLERS, useFactory: (succeeded: PaymentSucceededHandler) => [succeeded], inject: [PaymentSucceededHandler] },
     { provide: OutboxRepository, useClass: TypeOrmOutboxRepository },
