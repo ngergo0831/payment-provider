@@ -8,7 +8,14 @@ const T = new Date('2026-11-09T10:00:00Z');
 describe('payment mapper (domain <-> table row)', () => {
   it('flattens Money into minor units and currency columns', () => {
     const record = toRecord(Payment.start({ companyId: 'c1', provider: 'stripe', amount: Money.of(4900, 'USD') }, T));
-    expect(record).toMatchObject({ companyId: 'c1', provider: 'stripe', amountMinor: 4900, currency: 'USD', status: 'CREATED', version: 0 });
+    expect(record).toMatchObject({
+      companyId: 'c1',
+      provider: 'stripe',
+      amountMinor: 4900,
+      currency: 'USD',
+      status: 'CREATED',
+      version: 0,
+    });
   });
 
   it('round-trips every field, including a failed, linked and synced payment', () => {

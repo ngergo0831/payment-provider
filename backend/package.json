@@ -11,7 +11,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "lint": "tsc --noEmit -p tsconfig.jest.json",
+    "lint": "tsc --noEmit -p tsconfig.jest.json && eslint . && prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --selectProjects unit",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --selectProjects e2e --runInBand",
     "migration:show": "nest build && typeorm migration:show -d dist/database/data-source.js",
@@ -26,6 +27,8 @@
     "@nestjs/passport": "^12.0.1",
     "@nestjs/platform-express": "^12.4.2",
     "@nestjs/swagger": "^12.1.1",
+    "@nestjs/terminus": "^12.1.0",
+    "@nestjs/throttler": "^6.7.1",
     "@nestjs/typeorm": "^12.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -39,6 +42,7 @@
     "typeorm": "^1.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.12",
     "@nestjs/testing": "^12.4.2",
     "@types/express": "^5.0.6",
@@ -47,9 +51,13 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
     "jest": "^30.5.2",
+    "prettier": "^3.9.10",
     "supertest": "^7.3.2",
     "ts-jest": "^29.4.15",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
   }
 }

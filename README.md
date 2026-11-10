@@ -5,7 +5,7 @@
 
 A focused slice of a self-serve B2B onboarding flow, going deep on one integration: **Stripe payments**.
 
-Built one small task per commit; the task list is in [docs/EXECUTION-PLAN.md](docs/EXECUTION-PLAN.md).
+The design decisions and their reasons are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Stack
 
@@ -26,7 +26,7 @@ docker compose ps              # wait until every service says (healthy)
 | What | Where |
 |---|---|
 | The web app (register, pay, activation) | http://localhost:8080 |
-| Swagger UI / OpenAPI JSON | http://localhost:3000/docs · http://localhost:3000/docs-json |
+| Swagger UI / OpenAPI JSON (not mounted when `NODE_ENV=production`) | http://localhost:3000/docs · http://localhost:3000/docs-json |
 | The API directly | http://localhost:3000 (the web app reaches it as `/api/*`) |
 
 It needs **no configuration**: without Stripe keys it uses the built-in mock provider, and the payment screen shows a demo
@@ -41,12 +41,12 @@ Requires Node.js 22.12 or newer.
 docker compose up -d postgres   # from the repository root: just the database (see "Database" below)
 cd backend
 npm install
-cp .env.example .env   # required: DATABASE_URL has no default (see "Configuration")
+cp .env.example .env   # required: NODE_ENV, DATABASE_URL, JWT_SECRET and PAYMENT_PROVIDER have no defaults
 npm run start:dev      # API on http://localhost:3000  (try GET /health)
                        # Swagger UI: http://localhost:3000/docs   (raw OpenAPI: /docs-json)
 npm test               # unit tests: fast, need no database
 npm run test:e2e       # end-to-end tests: need the database; each file uses its own throw-away DB
-npm run lint           # type-check source and tests
+npm run lint           # type-check, ESLint and Prettier check (npm run format fixes formatting)
 
 cd ../frontend
 npm install
@@ -78,10 +78,12 @@ prints every problem and exits instead of starting half-configured.
 
 ```bash
 cd backend
-cp .env.example .env   # required once: DATABASE_URL has no default
+cp .env.example .env   # required once: NODE_ENV, DATABASE_URL, JWT_SECRET and PAYMENT_PROVIDER have no defaults
 ```
 
 Real environment variables override values in `.env`. Each setting is documented in `backend/.env.example`.
+`NODE_ENV` and `PAYMENT_PROVIDER` are required on purpose, so a deployment that forgets them fails to start instead of running as
+development on the mock provider.
 
 ### Migrations
 
@@ -91,7 +93,7 @@ last one.
 
 ## Registering a company
 
-`POST /auth/register` creates a company and its first admin in one step. There is no password or login in this slice.
+`POST /auth/register` creates a company and its first user in one step. There is no password or login in this slice.
 The company starts as `PENDING_PAYMENT` and becomes `ACTIVE` once it has paid. Try it in Swagger (`/docs`), where the
 request is pre-filled; change the email to register again.
 
@@ -104,7 +106,8 @@ curl -X POST http://localhost:3000/auth/register -H 'content-type: application/j
 ```
 
 Emails are stored trimmed and lower-case (a second registration differing only in case is a `409`). Unknown fields
-and invalid values return `422` listing every problem; see "Error format" below.
+and invalid values return `422` listing every problem; see "Error format" below. Registration is rate limited per client
+(`RATE_LIMIT_PER_MINUTE`, 20 by default); over the limit the answer is `429 TOO_MANY_REQUESTS`.
 
 ## Authentication
 
@@ -118,7 +121,7 @@ curl http://localhost:3000/onboarding/status -H "Authorization: Bearer <accessTo
 
 - **Which company?** Always the one in the token. Endpoints take no company id, so a caller cannot ask for another company's data.
 - **A missing, malformed, expired, forged or wrongly signed token** all return `401` in the standard error shape.
-- Tokens are *signed*, not encrypted: anyone can read the claims (user id, company id, role), but nobody can change them.
+- Tokens are *signed*, not encrypted: anyone can read the claims (user id and company id), but nobody can change them.
 - There is no login or refresh in this slice: losing the token means registering again.
 - `JWT_SECRET` is required (32+ characters). The example in `.env.example` is public and is refused when `NODE_ENV=production`.
 
@@ -128,7 +131,8 @@ Both endpoints need the `Authorization: Bearer <accessToken>` header; the compan
 
 - `POST /payments` **starts or resumes** the company's payment and returns what the browser needs to pay (`clientSecret`).
   Calling it again is always safe: a double click, a page reload, a retry after a declined card or after the provider
-  was down all return the same open payment. A company never has two open payments.
+  was down all return the same open payment. A company never has two open payments, and once it has paid it cannot start
+  another one. Like registration, it is rate limited (`429 TOO_MANY_REQUESTS`).
 - `GET /payments/{id}` returns the stored status (cheap to poll). Another company's payment is a `404`.
 
 The price comes from configuration (`PLAN_PRICE_MINOR`, `PLAN_CURRENCY`; default 49.00 USD) and is validated at startup.
@@ -138,10 +142,12 @@ resumes the same payment. Starting a payment does not activate the account; that
 ### How a payment activates the account
 
 1. The provider reports the payment as paid, and our side notices it. Saving that status also **queues a "payment
-   succeeded" message in the same database transaction** (the outbox, `docs/adr/0006-transactional-outbox.md`).
+   succeeded" message in the same database transaction** (the outbox, see `docs/DESIGN.md`).
 2. A small timer (`OUTBOX_POLL_INTERVAL_MS`, 1 s by default) delivers queued messages. The company becomes `ACTIVE`.
 3. If delivery fails, the error is recorded and it is retried after a growing delay (5 s, 10 s, 20 s, ... at most 5 minutes
-   apart), up to 10 attempts. A message that still fails stays in the `outbox_messages` table, with its error, for a person.
+   apart). A message is never abandoned, because then a paid company would never be activated: after 10 failed attempts it
+   keeps retrying every 5 minutes, and each failure is logged at `error` level with the reason (also stored in
+   `outbox_messages.last_error`). Once the cause is fixed, the next retry activates the company with no manual step.
 
 Delivery is at-least-once, so activation is idempotent: delivering the same message twice changes nothing.
 
@@ -149,15 +155,17 @@ Delivery is at-least-once, so activation is idempotent: delivering the same mess
 
 The provider tells us a payment changed by calling `POST /webhooks/payments` (public: the **signature** is the credential,
 checked over the exact bytes received). A webhook is only a *trigger*: we never trust what it says, we ask the provider for the
-payment's real current state. So a duplicate, late, out-of-order or forged message cannot mislead us. An event is marked
-handled only after everything succeeded, so if something fails the provider's retry is processed, not skipped.
+payment's real current state. So a duplicate, late, out-of-order or forged message cannot mislead us. Handling is idempotent,
+so nothing is stored per event: a redelivery is processed again and changes nothing, and if something fails the provider's retry
+simply tries again.
 
 ### If a webhook is lost
 
 Webhooks are delivered at-least-once *usually*, which is not good enough for money. So once a minute (`RECONCILE_INTERVAL_MS`)
-a job asks the provider about open payments that have been quiet for 2 minutes and applies the real state through the same
-code path as a webhook. A customer who paid is therefore activated within a few minutes even if the webhook never arrives.
-It only looks at payments created in the last 24 hours (older ones are abandoned checkouts), oldest-synced first, 50 at a time.
+a job asks the provider about payments that are not final and applies the real state through the same code path as a webhook.
+A payment is checked again once it has been quiet for 2 minutes or 10% of its age, whichever is longer, so a fresh checkout is
+checked every couple of minutes and a week-old one about twice a day. A customer who paid is therefore activated within a few
+minutes even if the webhook never arrives. Payments older than 30 days are left alone; it works oldest-synced first, 50 at a time.
 One failing payment, or a provider outage, never stops the others; the next run tries again.
 
 ### Trying it from Swagger (mock provider)
@@ -170,15 +178,15 @@ Open `/docs`, register, click **Authorize** and paste the token, then:
 
 Failure drills: `{"outcome": "succeed", "deliverWebhook": false}` simulates a **lost webhook** (the account activates when the
 customer resumes checkout via `POST /payments`), and `POST /dev/mock-payments/outage` switches the provider "off".
-These dev endpoints answer `404` when `NODE_ENV=production`.
+These dev endpoints exist only when `PAYMENT_PROVIDER=mock` (which production refuses), so elsewhere they are a `404`.
 
 ### Choosing the payment provider
 
-`PAYMENT_PROVIDER` selects it at startup (the design is in `docs/adr/0005-payment-provider-port.md`):
+`PAYMENT_PROVIDER` selects it at startup and is required (the design is in `docs/DESIGN.md`):
 
 | Value | Needs | Use for |
 |---|---|---|
-| `mock` (default) | nothing | development and tests. Refused when `NODE_ENV=production`: its webhook "signature" is public, so anyone could fake a payment |
+| `mock` | nothing | development and tests. Refused when `NODE_ENV=production`: its webhook "signature" is public, so anyone could fake a payment |
 | `stripe` | `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | real payments (use Stripe's **test mode** keys while developing) |
 
 `GET /checkout-config` (public) tells the browser which provider is active, Stripe's *publishable* key (designed to be public;
@@ -225,7 +233,9 @@ A live key (`sk_live_...`) is refused by that test.
 
 ## Logs and privacy
 
-Logs are a data-leak surface, so they are tested like one. An end-to-end "canary" test (`backend/test/log-safety.e2e-spec.ts`)
+Logging uses Nest's own `ConsoleLogger`, as text or JSON (`LOG_FORMAT`, `LOG_LEVEL`), with every message and stack trace passed
+through a redaction step for secret-shaped strings (API keys, signing secrets, client secrets, JWTs). Logs are a data-leak surface,
+so they are tested like one. An end-to-end "canary" test (`backend/test/log-safety.e2e-spec.ts`)
 runs registrations, payments, webhooks, outages and several failures with all logging on, and checks that no email, name,
 company detail, token, signing secret or payment client secret appears anywhere in the output. It already caught one real
 leak: TypeORM's error logging prints a failed query *with its parameter values*, so it is switched off (the failure is still
@@ -256,6 +266,5 @@ real cause is logged server-side and never sent to the client.
 | Path | Purpose |
 |---|---|
 | `assignment.txt` | The original take-home assignment |
-| `docs/EXECUTION-PLAN.md` | Step-by-step build plan, one task per commit |
-| `docs/adr/` | Architecture decision records: why the code is shaped the way it is |
+| `docs/DESIGN.md` | Design decisions: why the code is shaped the way it is |
 | `backend/` | NestJS API |

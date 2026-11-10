@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { isUniqueViolation } from '../../common/database/pg-errors';
 import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
-import { AccountRepository, CompanyRepository, UserRepository } from '../application/ports';
+import { CompanyRepository } from '../application/ports';
 import { Company } from '../domain/company.entity';
 import { User } from '../domain/user.entity';
 
@@ -23,28 +23,10 @@ export class TypeOrmCompanyRepository extends CompanyRepository {
   async save(company: Company): Promise<void> {
     await this.repository.save(company);
   }
-}
 
-@Injectable()
-export class TypeOrmUserRepository extends UserRepository {
-  constructor(@InjectRepository(User) private readonly repository: Repository<User>) {
-    super();
-  }
-
-  findByEmail(email: string): Promise<User | null> {
-    return this.repository.findOneBy({ email });
-  }
-}
-
-@Injectable()
-export class TypeOrmAccountRepository extends AccountRepository {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {
-    super();
-  }
-
-  async createCompanyWithAdmin(company: Company, admin: User): Promise<void> {
+  async createWithAdmin(company: Company, admin: User): Promise<void> {
     try {
-      await this.dataSource.transaction(async (manager) => {
+      await this.repository.manager.transaction(async (manager) => {
         await manager.insert(Company, company);
         await manager.insert(User, admin);
       });

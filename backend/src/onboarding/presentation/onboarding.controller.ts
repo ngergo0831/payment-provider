@@ -8,9 +8,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthenticatedUser } from '../../auth/domain/authenticated-user';
-import { CurrentUser } from '../../auth/presentation/current-user.decorator';
-import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
+import { AuthenticatedUser, CurrentUser } from '../../auth/current-user.decorator';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { ErrorResponse } from '../../common/http/error-response';
 import { GetOnboardingStatusUseCase, OnboardingStep } from '../application/get-onboarding-status.use-case';
 import { CompanyStatus } from '../domain/company.entity';

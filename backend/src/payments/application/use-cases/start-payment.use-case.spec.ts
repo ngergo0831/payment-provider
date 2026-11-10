@@ -1,9 +1,15 @@
-import { CompanyAlreadyActiveException, CompanyNotFoundException, PaymentProviderUnavailableException } from '../../../common/errors/exceptions';
+import {
+  CompanyAlreadyActiveException,
+  CompanyNotFoundException,
+  PaymentProviderUnavailableException,
+} from '../../../common/errors/exceptions';
 import { jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import { FakeCompanyGateway, FixedPricing, InMemoryPaymentRepository } from '../../../testing/in-memory-payments';
 import { MockOutcome, MockPaymentProvider } from '../../infrastructure/providers/mock-payment.provider';
 import { Money } from '../../domain/money';
 import { PaymentStatus } from '../../domain/payment-status';
+import { PaymentRecordConflictException } from '../payment-record-conflict.exception';
 import { PaymentSynchronizer } from '../payment-synchronizer';
 import { StartPaymentUseCase } from './start-payment.use-case';
 
@@ -82,6 +88,48 @@ describe('StartPaymentUseCase', () => {
 
       await expect(useCase.execute(COMPANY)).rejects.toBeInstanceOf(CompanyAlreadyActiveException);
       expect(payments.count).toBe(0);
+    });
+  });
+
+  describe('after the payment succeeded but before the company is activated', () => {
+    async function paidButNotYetActive() {
+      const context = setup();
+      const { payment } = await context.useCase.execute(COMPANY);
+      context.provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
+      await context.useCase.execute(COMPANY);
+      return { ...context, paid: payment };
+    }
+
+    it('returns the succeeded payment instead of starting a second one', async () => {
+      const { useCase, provider, payments, paid } = await paidButNotYetActive();
+      const create = jest.spyOn(provider, 'createPayment');
+
+      const again = await useCase.execute(COMPANY);
+
+      expect(again.payment).toMatchObject({ id: paid.id, status: PaymentStatus.SUCCEEDED });
+      expect(again.clientSecret).toBeNull();
+      expect(create).not.toHaveBeenCalled();
+      expect(payments.count).toBe(1);
+    });
+
+    it('does not even ask the provider again', async () => {
+      const { useCase, provider } = await paidButNotYetActive();
+      const retrieve = jest.spyOn(provider, 'retrievePayment');
+
+      await useCase.execute(COMPANY);
+
+      expect(retrieve).not.toHaveBeenCalled();
+    });
+
+    it('still converges on that payment when the insert loses to it (a racing request saw no payment yet)', async () => {
+      const { useCase, payments, paid } = await paidButNotYetActive();
+      const findLive = payments.findLiveByCompany.bind(payments);
+      jest.spyOn(payments, 'findLiveByCompany').mockResolvedValueOnce(null).mockImplementation(findLive);
+
+      const again = await useCase.execute(COMPANY);
+
+      expect(again.payment.id).toBe(paid.id);
+      expect(payments.count).toBe(1);
     });
   });
 
@@ -188,15 +236,62 @@ describe('StartPaymentUseCase', () => {
     });
   });
 
+  describe('when the provider cannot know the stored payment', () => {
+    const restartedWith = (provider: MockPaymentProvider, { payments, companies }: ReturnType<typeof setup>) =>
+      new StartPaymentUseCase(companies, new FixedPricing(), provider, payments, new PaymentSynchronizer(payments));
+
+    it('after a restart of the mock (it forgot every payment), closes the stale one and starts a fresh one', async () => {
+      const context = setup();
+      const first = await context.useCase.execute(COMPANY);
+
+      const second = await restartedWith(new MockPaymentProvider(), context).execute(COMPANY);
+
+      expect(second.payment.id).not.toBe(first.payment.id);
+      expect(second.payment.status).toBe(PaymentStatus.CREATED);
+      expect(second.clientSecret).toEqual(expect.any(String));
+      expect((await context.payments.findById(first.payment.id))?.status).toBe(PaymentStatus.CANCELED);
+    });
+
+    it('a payment made with a provider that is no longer configured is not sent to the new one', async () => {
+      const context = setup();
+      const first = await context.useCase.execute(COMPANY);
+      const otherProvider = Object.assign(new MockPaymentProvider(), { name: 'other' });
+      const retrieve = jest.spyOn(otherProvider, 'retrievePayment');
+
+      const second = await restartedWith(otherProvider, context).execute(COMPANY);
+
+      expect(retrieve).not.toHaveBeenCalled();
+      expect(second.payment).toMatchObject({ provider: 'other', status: PaymentStatus.CREATED });
+      expect((await context.payments.findById(first.payment.id))?.status).toBe(PaymentStatus.CANCELED);
+    });
+
+    it('refuses to close a PROCESSING payment blindly (money may be in flight)', async () => {
+      const context = setup();
+      const { payment } = await context.useCase.execute(COMPANY);
+      context.provider.simulate(payment.providerRef as string, MockOutcome.PROCESSING);
+      await context.useCase.execute(COMPANY);
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(restartedWith(new MockPaymentProvider(), context).execute(COMPANY)).rejects.toBeInstanceOf(
+        PaymentRecordConflictException,
+      );
+      expect(context.payments.count).toBe(1);
+    });
+  });
+
   it('reuses the open payment even if the price in configuration changed since (the amount is fixed at creation)', async () => {
     const payments = new InMemoryPaymentRepository();
     const provider = new MockPaymentProvider();
     const companies = new FakeCompanyGateway();
     companies.add(COMPANY);
     const sync = new PaymentSynchronizer(payments);
-    const first = await new StartPaymentUseCase(companies, new FixedPricing(Money.of(4900, 'USD')), provider, payments, sync).execute(COMPANY);
+    const first = await new StartPaymentUseCase(companies, new FixedPricing(Money.of(4900, 'USD')), provider, payments, sync).execute(
+      COMPANY,
+    );
 
-    const later = await new StartPaymentUseCase(companies, new FixedPricing(Money.of(9900, 'USD')), provider, payments, sync).execute(COMPANY);
+    const later = await new StartPaymentUseCase(companies, new FixedPricing(Money.of(9900, 'USD')), provider, payments, sync).execute(
+      COMPANY,
+    );
 
     expect(later.payment.id).toBe(first.payment.id);
     expect(later.payment.amount.amountMinor).toBe(4900);

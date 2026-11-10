@@ -6,6 +6,7 @@ import {
   PaymentProviderFailureException,
   PaymentProviderUnavailableException,
 } from '../../../common/errors/exceptions';
+import { ProviderPaymentNotFoundError } from '../../application/ports/payment-provider';
 import { Money } from '../../domain/money';
 import { PaymentStatus } from '../../domain/payment-status';
 import { StripePaymentProvider } from './stripe-payment.provider';
@@ -112,7 +113,8 @@ describe('StripePaymentProvider', () => {
   });
 
   describe('failures are translated into our two categories', () => {
-    const stripeError = (ErrorClass: new (raw: never) => Error) => new ErrorClass({ message: 'details we must not leak', type: 'x' } as never);
+    const stripeError = (ErrorClass: new (raw: never) => Error) =>
+      new ErrorClass({ message: 'details we must not leak', type: 'x' } as never);
 
     it.each([
       ['a connection error (network down, timeout)', () => stripeError(Stripe.errors.StripeConnectionError)],
@@ -140,7 +142,33 @@ describe('StripePaymentProvider', () => {
       await expect(provider.createPayment(request)).rejects.toBeInstanceOf(PaymentProviderFailureException);
     });
 
-    it('never passes Stripe\'s own message on to the client', async () => {
+    it('"no such payment intent" on retrieval -> not found (the keys may point at another account)', async () => {
+      const { provider, retrieve } = setup();
+      retrieve.mockRejectedValue(
+        new Stripe.errors.StripeInvalidRequestError({
+          message: 'No such payment_intent',
+          type: 'invalid_request_error',
+          code: 'resource_missing',
+        } as never),
+      );
+
+      await expect(provider.retrievePayment('pi_gone')).rejects.toEqual(new ProviderPaymentNotFoundError('pi_gone'));
+    });
+
+    it('a missing resource while CREATING is still our failure, not "not found"', async () => {
+      const { provider, create } = setup();
+      create.mockRejectedValue(
+        new Stripe.errors.StripeInvalidRequestError({
+          message: 'No such customer',
+          type: 'invalid_request_error',
+          code: 'resource_missing',
+        } as never),
+      );
+
+      await expect(provider.createPayment(request)).rejects.toBeInstanceOf(PaymentProviderFailureException);
+    });
+
+    it("never passes Stripe's own message on to the client", async () => {
       const { provider, create } = setup();
       create.mockRejectedValue(stripeError(Stripe.errors.StripeAuthenticationError));
 
@@ -151,10 +179,20 @@ describe('StripePaymentProvider', () => {
   describe('parseWebhook', () => {
     const sign = (event: object, options: { secret?: string; timestamp?: number } = {}) => {
       const payload = JSON.stringify(event);
-      const header = signer.webhooks.generateTestHeaderString({ payload, secret: options.secret ?? WEBHOOK_SECRET, timestamp: options.timestamp });
+      const header = signer.webhooks.generateTestHeaderString({
+        payload,
+        secret: options.secret ?? WEBHOOK_SECRET,
+        timestamp: options.timestamp,
+      });
       return { rawBody: Buffer.from(payload), header };
     };
-    const succeeded = { id: 'evt_1', object: 'event', type: 'payment_intent.succeeded', created: 1, data: { object: intent({ status: 'succeeded' }) } };
+    const succeeded = {
+      id: 'evt_1',
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      created: 1,
+      data: { object: intent({ status: 'succeeded' }) },
+    };
 
     it('accepts a correctly signed event and says which payment it is about', () => {
       const { provider } = setup();
@@ -166,16 +204,6 @@ describe('StripePaymentProvider', () => {
         providerRef: 'pi_123',
         paymentId: 'our-payment-1',
       });
-    });
-
-    it('stores only a minimal audit record: the intent\'s client secret never reaches our database', () => {
-      const { provider } = setup();
-      const { rawBody, header } = sign(succeeded);
-
-      const event = provider.parseWebhook(rawBody, header);
-
-      expect(event?.raw).toEqual({ id: 'evt_1', type: 'payment_intent.succeeded', created: 1, paymentIntent: 'pi_123' });
-      expect(JSON.stringify(event?.raw)).not.toContain('secret');
     });
 
     it.each([

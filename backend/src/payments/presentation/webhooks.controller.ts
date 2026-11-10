@@ -34,9 +34,12 @@ export class WebhooksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Receiver for payment provider notifications (called by the provider, not by clients)' })
   @ApiOkResponse({ type: WebhookAcknowledgement, description: 'Acknowledged: handled, a duplicate, or not relevant' })
-  @ApiBadRequestResponse({ type: ErrorResponse, description: 'INVALID_WEBHOOK_SIGNATURE: missing or wrong signature; nothing was processed' })
+  @ApiBadRequestResponse({
+    type: ErrorResponse,
+    description: 'INVALID_WEBHOOK_SIGNATURE: missing or wrong signature; nothing was processed',
+  })
   async receive(@Req() request: RawBodyRequest<Request>): Promise<WebhookAcknowledgement> {
-    // The signature covers the EXACT bytes the provider sent. A re-serialised JSON body would never verify.
+    // The signature covers the exact bytes the provider sent. A re-serialised JSON body would never verify.
     if (!request.rawBody) throw new BadRequestException('Missing request body');
 
     const event = this.provider.parseWebhook(request.rawBody, request.header(this.provider.webhookSignatureHeader));

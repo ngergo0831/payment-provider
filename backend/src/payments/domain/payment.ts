@@ -67,17 +67,39 @@ export class Payment {
     return { ...this.state };
   }
 
-  get id(): string { return this.state.id; }
-  get companyId(): string { return this.state.companyId; }
-  get provider(): string { return this.state.provider; }
-  get providerRef(): string | null { return this.state.providerRef; }
-  get amount(): Money { return this.state.amount; }
-  get status(): PaymentStatus { return this.state.status; }
-  get failureCode(): string | null { return this.state.failureCode; }
-  get version(): number { return this.state.version; }
-  get lastSyncedAt(): Date | null { return this.state.lastSyncedAt; }
-  get createdAt(): Date { return this.state.createdAt; }
-  get updatedAt(): Date { return this.state.updatedAt; }
+  get id(): string {
+    return this.state.id;
+  }
+  get companyId(): string {
+    return this.state.companyId;
+  }
+  get provider(): string {
+    return this.state.provider;
+  }
+  get providerRef(): string | null {
+    return this.state.providerRef;
+  }
+  get amount(): Money {
+    return this.state.amount;
+  }
+  get status(): PaymentStatus {
+    return this.state.status;
+  }
+  get failureCode(): string | null {
+    return this.state.failureCode;
+  }
+  get version(): number {
+    return this.state.version;
+  }
+  get lastSyncedAt(): Date | null {
+    return this.state.lastSyncedAt;
+  }
+  get createdAt(): Date {
+    return this.state.createdAt;
+  }
+  get updatedAt(): Date {
+    return this.state.updatedAt;
+  }
 
   isSucceeded(): boolean {
     return this.state.status === PaymentStatus.SUCCEEDED;
@@ -89,7 +111,7 @@ export class Payment {
 
   /**
    * Links this payment to the provider's own record of it. Idempotent for the same reference (a replayed
-   * report is harmless), but a payment can only ever belong to ONE provider payment: a different reference
+   * report is harmless), but a payment can only ever belong to one provider payment: a different reference
    * would mean we are about to mix up two charges.
    */
   attachProviderRef(providerRef: string, now: Date = new Date()): void {
@@ -101,7 +123,7 @@ export class Payment {
   }
 
   /**
-   * The ONLY way the status changes. Used for every source of truth about the payment
+   * The only way the status changes. Used for every source of truth about the payment
    * (webhook, reconciliation, "resume checkout"), so they all obey the same rules.
    *
    * `failureCode` is meaningful only for FAILED; it is cleared on any other status.

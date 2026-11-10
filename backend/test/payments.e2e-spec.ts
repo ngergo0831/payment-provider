@@ -1,4 +1,5 @@
-import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
+import { jest } from '@jest/globals';
+import { PaymentProvider, ProviderPaymentNotFoundError } from '../src/payments/application/ports/payment-provider';
 import { MockOutcome, MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
 import { buildOpenApiDocument } from '../src/swagger.setup';
 import { companyStatus, registerCompany } from './support/companies';
@@ -27,6 +28,17 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       paymentRows: () => queryDatabase(t.databaseUrl, `SELECT * FROM payments WHERE company_id = '${company.companyId}'`),
     };
   };
+
+  describe('with the mock provider', () => {
+    it('uses the mock provider', () => {
+      expect(t.app.get(PaymentProvider)).toBeInstanceOf(MockPaymentProvider);
+    });
+
+    it('publishes the config the browser needs, with no key, to anyone (no JWT)', async () => {
+      const res = await t.http.get('/checkout-config').expect(200);
+      expect(res.body).toEqual({ provider: 'mock', publishableKey: null, price: { amountMinor: 4900, currency: 'USD' } });
+    });
+  });
 
   describe('starting a payment', () => {
     it('creates a payment for the plan price and returns what the browser needs to pay', async () => {
@@ -156,6 +168,23 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       expect(messages).toEqual([{ payload: { paymentId: body.payment.id, companyId: admin.companyId } }]);
     });
 
+    it('never starts a second payment while a paid company waits for activation', async () => {
+      const admin = await newAdmin();
+      const { body } = await admin.start().expect(200);
+      provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
+      await admin.start().expect(200);
+      expect(await admin.companyStatus()).toBe('PENDING_PAYMENT');
+
+      const responses = await Promise.all([admin.start(), admin.start(), admin.start()]);
+
+      for (const res of responses) {
+        expect(res.status).toBe(200);
+        expect(res.body.payment).toMatchObject({ id: body.payment.id, status: 'SUCCEEDED' });
+        expect(res.body.clientSecret).toBeNull();
+      }
+      expect(await admin.paymentRows()).toHaveLength(1);
+    });
+
     it('replaces a payment the provider canceled with a fresh one', async () => {
       const admin = await newAdmin();
       const first = await admin.start().expect(200);
@@ -167,6 +196,35 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       expect(second.body.payment.status).toBe('CREATED');
       const statuses = (await admin.paymentRows()).map((row) => row.status as string).sort();
       expect(statuses).toEqual(['CANCELED', 'CREATED']);
+    });
+  });
+
+  describe('when the provider cannot know the stored payment', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('after the mock restarted (it forgot its payments), the next start closes the stale one and opens a fresh one', async () => {
+      const admin = await newAdmin();
+      const first = await admin.start().expect(200);
+      jest.spyOn(provider, 'retrievePayment').mockRejectedValueOnce(new ProviderPaymentNotFoundError(first.body.payment.providerRef));
+
+      const second = await admin.start().expect(200);
+
+      expect(second.body.payment.id).not.toBe(first.body.payment.id);
+      expect(second.body.payment.status).toBe('CREATED');
+      const statuses = (await admin.paymentRows()).map((row) => row.status as string).sort();
+      expect(statuses).toEqual(['CANCELED', 'CREATED']);
+    });
+
+    it('a payment made with a different provider is closed instead of being looked up at the current one', async () => {
+      const admin = await newAdmin();
+      const first = await admin.start().expect(200);
+      await queryDatabase(t.databaseUrl, `UPDATE payments SET provider = 'stripe' WHERE id = '${first.body.payment.id}'`);
+
+      const second = await admin.start().expect(200);
+
+      expect(second.body.payment.id).not.toBe(first.body.payment.id);
+      const rows = await admin.paymentRows();
+      expect(rows.find((row) => row.id === first.body.payment.id)).toMatchObject({ status: 'CANCELED' });
     });
   });
 

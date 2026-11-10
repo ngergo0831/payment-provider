@@ -3,7 +3,7 @@
  * 1 USD = 100 cents (exponent 2), but 1 JPY has no sub-unit (exponent 0).
  *
  * The list is EXPLICIT, and an unknown currency is rejected rather than guessed: guessing wrong
- * means charging 100x too much or too little. Deliberately NOT supported yet:
+ * means charging 100x too much or too little. Deliberately not supported yet:
  *  - HUF, TWD, UGX: two-decimal in ISO, but Stripe only accepts whole units (amount divisible by 100).
  *  - KWD, BHD, JOD, OMR, TND: three decimals, and Stripe wants the last digit to be 0.
  * Each needs its own rule before it can be added safely.

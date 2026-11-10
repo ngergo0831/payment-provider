@@ -25,7 +25,7 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
       const res = await t.http.post('/auth/register').send(body).expect(201);
 
       expect(res.body).toEqual({
-        user: { id: expect.any(String), email: body.email, fullName: 'Jane Doe', role: 'ADMIN' },
+        user: { id: expect.any(String), email: body.email, fullName: 'Jane Doe' },
         company: { id: expect.any(String), name: 'Acme Ltd', status: 'PENDING_PAYMENT' },
         accessToken: expect.any(String),
         tokenType: 'Bearer',
@@ -48,7 +48,7 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
     it('exposes nothing beyond the documented fields', async () => {
       const res = await t.http.post('/auth/register').send(payload()).expect(201);
       expect(Object.keys(res.body).sort()).toEqual(['accessToken', 'company', 'tokenType', 'user']);
-      expect(Object.keys(res.body.user).sort()).toEqual(['email', 'fullName', 'id', 'role']);
+      expect(Object.keys(res.body.user).sort()).toEqual(['email', 'fullName', 'id']);
       expect(Object.keys(res.body.company).sort()).toEqual(['id', 'name', 'status']);
     });
 
@@ -109,7 +109,10 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
     });
 
     it('rejects unknown fields rather than ignoring them (no smuggling a role in)', async () => {
-      const res = await t.http.post('/auth/register').send({ ...payload(), role: 'ADMIN', status: 'ACTIVE' }).expect(422);
+      const res = await t.http
+        .post('/auth/register')
+        .send({ ...payload(), role: 'ADMIN', status: 'ACTIVE' })
+        .expect(422);
       const fields = res.body.details.map((d: { field: string }) => d.field);
       expect(fields).toEqual(expect.arrayContaining(['role', 'status']));
     });
@@ -123,7 +126,10 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
 
     it('stores nothing when validation fails', async () => {
       const email = `invalid${++counter}@acme.example`;
-      await t.http.post('/auth/register').send({ email, fullName: '', company: { name: 'Acme', country: 'HU' } }).expect(422);
+      await t.http
+        .post('/auth/register')
+        .send({ email, fullName: '', company: { name: 'Acme', country: 'HU' } })
+        .expect(422);
       expect(await queryDatabase(t.databaseUrl, `SELECT 1 FROM users WHERE email = '${email}'`)).toHaveLength(0);
     });
   });
@@ -133,7 +139,10 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
       const body = payload();
       await t.http.post('/auth/register').send(body).expect(201);
 
-      const res = await t.http.post('/auth/register').send({ ...body, email: body.email.toUpperCase() }).expect(409);
+      const res = await t.http
+        .post('/auth/register')
+        .send({ ...body, email: body.email.toUpperCase() })
+        .expect(409);
 
       expect(res.body).toMatchObject({ statusCode: 409, code: 'EMAIL_ALREADY_REGISTERED', requestId: expect.any(String) });
       const companies = await queryDatabase(t.databaseUrl, `SELECT 1 FROM users WHERE email = '${body.email}'`);
@@ -152,14 +161,41 @@ describe('POST /auth/register (real HTTP + PostgreSQL)', () => {
   });
 
   describe('documentation', () => {
-    it('is documented with a pre-filled example and its 201 / 409 / 422 outcomes', () => {
+    it('is documented with a pre-filled example and its 201 / 409 / 422 / 429 outcomes', () => {
       const doc = buildOpenApiDocument(t.app);
       const operation = doc.paths['/auth/register'].post as { responses: Record<string, unknown>; tags: string[] };
-      expect(Object.keys(operation.responses)).toEqual(expect.arrayContaining(['201', '409', '422']));
+      expect(Object.keys(operation.responses)).toEqual(expect.arrayContaining(['201', '409', '422', '429']));
 
       const schemas = doc.components?.schemas as Record<string, { properties: Record<string, { example?: unknown }> }>;
       expect(schemas.RegisterDto.properties.email.example).toBe('jane.doe@acme.example');
       expect(schemas.CompanyDetailsDto.properties.country.example).toBe('HU');
     });
+  });
+});
+
+describe('rate limiting of the endpoints that create something', () => {
+  let t: TestApp;
+
+  beforeAll(async () => {
+    t = await createTestApp({ env: { RATE_LIMIT_PER_MINUTE: '2' } });
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+
+  it('answers 429 TOO_MANY_REQUESTS once a client exceeds the limit on registration and on starting a payment', async () => {
+    const first = await t.http.post('/auth/register').send(payload()).expect(201);
+    await t.http.post('/auth/register').send(payload()).expect(201);
+    const limited = await t.http.post('/auth/register').send(payload()).expect(429);
+    expect(limited.body).toMatchObject({ statusCode: 429, code: 'TOO_MANY_REQUESTS', requestId: expect.any(String) });
+
+    const auth = { Authorization: `Bearer ${first.body.accessToken}` };
+    await t.http.post('/payments').set(auth).expect(200);
+    await t.http.post('/payments').set(auth).expect(200);
+    await t.http.post('/payments').set(auth).expect(429);
+  });
+
+  it('leaves the read endpoints alone (the checkout page polls them)', async () => {
+    await Promise.all(Array.from({ length: 5 }, () => t.http.get('/checkout-config').expect(200)));
   });
 });

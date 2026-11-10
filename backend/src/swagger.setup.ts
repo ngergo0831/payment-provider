@@ -1,5 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+
+type OperationObject = NonNullable<OpenAPIObject['paths'][string]['get']>;
 import { ErrorResponse } from './common/http/error-response';
 
 export const DOCS_PATH = 'docs';
@@ -10,6 +12,11 @@ const DEFAULT_ERROR_RESPONSE = {
     'Specific statuses an endpoint can return are listed above.',
   content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
 };
+
+/** A path item also holds non-operation fields (`parameters`, `summary`...). */
+function isOperation(value: unknown): value is OperationObject {
+  return typeof value === 'object' && value !== null && 'responses' in value;
+}
 
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
@@ -28,8 +35,8 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   // OpenAPI's `default` response covers "any status not listed", so it is added once here instead of
   // being repeated on every endpoint. Endpoints still list their own specific statuses (409, 503...).
   for (const path of Object.values(document.paths)) {
-    for (const operation of Object.values(path)) {
-      if (operation && typeof operation === 'object' && 'responses' in operation && !operation.responses.default) {
+    for (const operation of Object.values(path) as unknown[]) {
+      if (isOperation(operation) && !operation.responses.default) {
         operation.responses.default = DEFAULT_ERROR_RESPONSE;
       }
     }

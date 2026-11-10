@@ -1,7 +1,6 @@
 import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
-import { InMemoryOnboarding } from '../../testing/in-memory-onboarding';
+import { InMemoryCompanyRepository } from '../../testing/in-memory-onboarding';
 import { CompanyStatus } from '../domain/company.entity';
-import { UserRole } from '../domain/user.entity';
 import { RegisterCompanyAdminCommand, RegisterCompanyAdminUseCase } from './register-company-admin.use-case';
 
 const command = (overrides: Partial<RegisterCompanyAdminCommand> = {}): RegisterCompanyAdminCommand => ({
@@ -12,9 +11,8 @@ const command = (overrides: Partial<RegisterCompanyAdminCommand> = {}): Register
 });
 
 function setup() {
-  const store = new InMemoryOnboarding();
-  const useCase = new RegisterCompanyAdminUseCase(store.userRepository, store.accountRepository);
-  return { store, useCase };
+  const store = new InMemoryCompanyRepository();
+  return { store, useCase: new RegisterCompanyAdminUseCase(store) };
 }
 
 describe('RegisterCompanyAdminUseCase', () => {
@@ -24,7 +22,7 @@ describe('RegisterCompanyAdminUseCase', () => {
     const { company, admin } = await useCase.execute(command());
 
     expect(company).toMatchObject({ name: 'Acme Ltd', country: 'HU', status: CompanyStatus.PENDING_PAYMENT });
-    expect(admin).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe', role: UserRole.ADMIN, companyId: company.id });
+    expect(admin).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe', companyId: company.id });
     expect(store.companies.size).toBe(1);
     expect(store.users.size).toBe(1);
   });
@@ -63,24 +61,13 @@ describe('RegisterCompanyAdminUseCase', () => {
     expect(withoutTax.company.taxId).toBeNull();
   });
 
-  describe('duplicate emails', () => {
-    it('rejects an email that is already registered, ignoring case, and creates nothing new', async () => {
-      const { store, useCase } = setup();
-      await useCase.execute(command());
+  it('rejects an email that is already registered, ignoring case, and creates nothing new', async () => {
+    const { store, useCase } = setup();
+    await useCase.execute(command());
 
-      await expect(useCase.execute(command({ email: 'JANE@acme.example' }))).rejects.toBeInstanceOf(EmailAlreadyRegisteredException);
+    await expect(useCase.execute(command({ email: 'JANE@acme.example' }))).rejects.toBeInstanceOf(EmailAlreadyRegisteredException);
 
-      expect(store.companies.size).toBe(1);
-      expect(store.users.size).toBe(1);
-    });
-
-    it('also reports a duplicate that slips past the pre-check (the race), via the repository', async () => {
-      const { store, useCase } = setup();
-      store.rejectNextCreateAsDuplicate = true;
-
-      await expect(useCase.execute(command())).rejects.toBeInstanceOf(EmailAlreadyRegisteredException);
-
-      expect(store.companies.size).toBe(0);
-    });
+    expect(store.companies.size).toBe(1);
+    expect(store.users.size).toBe(1);
   });
 });

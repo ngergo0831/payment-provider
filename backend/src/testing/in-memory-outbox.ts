@@ -10,7 +10,7 @@ interface Row {
 export class InMemoryOutbox extends OutboxRepository {
   private readonly rows = new Map<string, Row>();
 
-  /** Simulate a crash after the handler ran but before the message could be marked delivered. */
+  /** Simulate a crash after the message was acted on but before it could be marked delivered. */
   failNextMarkDelivered = false;
 
   add(type: string, payload: unknown = {}, availableAt = new Date(0)): string {
@@ -23,9 +23,10 @@ export class InMemoryOutbox extends OutboxRepository {
     return this.rows.get(id) as Row;
   }
 
-  async findDue(now: Date, maxAttempts: number, limit: number): Promise<QueuedMessage[]> {
+  async findDue(now: Date, limit: number): Promise<QueuedMessage[]> {
     return [...this.rows.values()]
-      .filter((row) => !row.deliveredAt && row.availableAt <= now && row.message.attempts < maxAttempts)
+      .filter((row) => !row.deliveredAt && row.availableAt <= now)
+      .sort((a, b) => a.availableAt.getTime() - b.availableAt.getTime())
       .slice(0, limit)
       .map((row) => ({ ...row.message }));
   }

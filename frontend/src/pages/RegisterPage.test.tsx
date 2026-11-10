@@ -7,7 +7,7 @@ import { RegisterPage } from './RegisterPage';
 afterEach(() => vi.restoreAllMocks());
 
 const account = {
-  user: { id: 'u1', email: 'jane@acme.example', fullName: 'Jane Doe', role: 'ADMIN' },
+  user: { id: 'u1', email: 'jane@acme.example', fullName: 'Jane Doe' },
   company: { id: 'c1', name: 'Acme Kft', status: 'PENDING_PAYMENT' as const },
   accessToken: 'token-1',
 };

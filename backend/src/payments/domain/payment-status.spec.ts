@@ -5,12 +5,12 @@ const ALL = [CREATED, REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED];
 
 const MATRIX: Record<PaymentStatus, PaymentStatus[]> = {
   //                 CREATED  REQ_ACTION  PROCESSING  SUCCEEDED  FAILED  CANCELED
-  [CREATED]:         [        REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED],
-  [REQUIRES_ACTION]: [                         PROCESSING, SUCCEEDED, FAILED, CANCELED],
-  [PROCESSING]:      [                                     SUCCEEDED, FAILED          ],
-  [FAILED]:          [        REQUIRES_ACTION, PROCESSING, SUCCEEDED,         CANCELED],
-  [SUCCEEDED]:       [],
-  [CANCELED]:        [],
+  [CREATED]: [REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED],
+  [REQUIRES_ACTION]: [PROCESSING, SUCCEEDED, FAILED, CANCELED],
+  [PROCESSING]: [SUCCEEDED, FAILED],
+  [FAILED]: [REQUIRES_ACTION, PROCESSING, SUCCEEDED, CANCELED],
+  [SUCCEEDED]: [],
+  [CANCELED]: [],
 };
 
 describe('payment status transitions', () => {
@@ -38,7 +38,7 @@ describe('the rules that matter most', () => {
     }
   });
 
-  it('FAILED is NOT final: a declined card can be retried on the same payment (ADR 0003)', () => {
+  it('FAILED is NOT final: a declined card can be retried on the same payment', () => {
     expect(isFinal(FAILED)).toBe(false);
     expect(canTransition(FAILED, PROCESSING)).toBe(true);
     expect(canTransition(FAILED, SUCCEEDED)).toBe(true);

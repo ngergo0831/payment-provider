@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { ArgumentsHost, ForbiddenException, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { ArgumentsHost, HttpException, HttpStatus, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { PaymentProviderUnavailableException, ValidationFailedException } from '../errors/exceptions';
 import { ErrorCode } from '../errors/error-codes';
 import { AllExceptionsFilter } from './all-exceptions.filter';
@@ -48,10 +48,10 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('keeps the status and message of a framework 4xx', () => {
-    const { status, body } = handle(new ForbiddenException('nope'));
+    const { status, body } = handle(new HttpException('slow down', HttpStatus.TOO_MANY_REQUESTS));
 
-    expect(status).toBe(403);
-    expect(body).toMatchObject({ code: ErrorCode.FORBIDDEN, message: 'nope' });
+    expect(status).toBe(429);
+    expect(body).toMatchObject({ code: ErrorCode.TOO_MANY_REQUESTS, message: 'slow down' });
   });
 
   it('treats a framework 5xx as our fault: generic message, INTERNAL_ERROR, logged with its stack', () => {

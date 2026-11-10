@@ -10,7 +10,7 @@ const registration = (name = 'Acme Ltd') => ({
 });
 
 const signer = new JwtService({ secret: TEST_JWT_SECRET });
-const claims = (companyId: string) => ({ companyId, role: 'ADMIN' });
+const claims = (companyId: string) => ({ companyId });
 const base64url = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
 
 describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', () => {
@@ -118,13 +118,7 @@ describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', (
     });
 
     it('a correctly signed token that lacks our claims', async () => {
-      const token = signer.sign({ role: 'ADMIN' }, { subject: 'u', issuer: 'payment-service', expiresIn: '1h' });
-      await status(token).expect(401);
-    });
-
-    it('a correctly signed token with an unknown role', async () => {
-      const { company } = await register();
-      const token = signer.sign({ companyId: company.id, role: 'SUPERUSER' }, { subject: 'u', issuer: 'payment-service', expiresIn: '1h' });
+      const token = signer.sign({ name: 'Jane' }, { subject: 'u', issuer: 'payment-service', expiresIn: '1h' });
       await status(token).expect(401);
     });
   });
@@ -138,7 +132,7 @@ describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', (
       expect((await status(bob.accessToken).expect(200)).body.company.name).toBe('Bob Co');
     });
 
-    it("cannot be redirected to another company with a query parameter, header or body", async () => {
+    it('cannot be redirected to another company with a query parameter, header or body', async () => {
       const alice = await register('Alice Co');
       const bob = await register('Bob Co');
 

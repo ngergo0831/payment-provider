@@ -8,7 +8,6 @@ import { RequestWithId } from '../http/request-id.middleware';
 const STATUS_BY_KIND: Record<ErrorKind, HttpStatus> = {
   [ErrorKind.VALIDATION]: HttpStatus.UNPROCESSABLE_ENTITY,
   [ErrorKind.BAD_REQUEST]: HttpStatus.BAD_REQUEST,
-  [ErrorKind.UNAUTHENTICATED]: HttpStatus.UNAUTHORIZED,
   [ErrorKind.NOT_FOUND]: HttpStatus.NOT_FOUND,
   [ErrorKind.CONFLICT]: HttpStatus.CONFLICT,
   [ErrorKind.PROVIDER_UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
@@ -18,8 +17,8 @@ const STATUS_BY_KIND: Record<ErrorKind, HttpStatus> = {
 const CODE_BY_HTTP_STATUS: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: ErrorCode.BAD_REQUEST,
   [HttpStatus.UNAUTHORIZED]: ErrorCode.UNAUTHORIZED,
-  [HttpStatus.FORBIDDEN]: ErrorCode.FORBIDDEN,
   [HttpStatus.NOT_FOUND]: ErrorCode.NOT_FOUND,
+  [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.TOO_MANY_REQUESTS,
 };
 
 type NormalizedError = Pick<ErrorResponse, 'statusCode' | 'code' | 'message' | 'details'>;
@@ -94,5 +93,5 @@ export class AllExceptionsFilter implements ExceptionFilter {
 }
 
 function isClientHttpError(exception: unknown): exception is HttpException {
-  return exception instanceof HttpException && exception.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR;
+  return exception instanceof HttpException && exception.getStatus() < (HttpStatus.INTERNAL_SERVER_ERROR as number);
 }

@@ -3,12 +3,11 @@ import { ErrorCode } from './error-codes';
 export enum ErrorKind {
   VALIDATION = 'VALIDATION',
   BAD_REQUEST = 'BAD_REQUEST',
-  UNAUTHENTICATED = 'UNAUTHENTICATED',
   NOT_FOUND = 'NOT_FOUND',
   CONFLICT = 'CONFLICT',
   /** An external dependency is down or timed out. Retrying later is reasonable. */
   PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE',
-  /** An external dependency rejected our request: a bug or misconfiguration on OUR side. Retrying will not help. */
+  /** An external dependency rejected our request: a bug or misconfiguration on our side. Retrying will not help. */
   PROVIDER_FAILURE = 'PROVIDER_FAILURE',
 }
 

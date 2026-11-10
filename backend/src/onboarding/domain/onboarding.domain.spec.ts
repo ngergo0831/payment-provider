@@ -1,8 +1,7 @@
 import { Company, CompanyStatus } from './company.entity';
-import { User, UserRole } from './user.entity';
+import { User } from './user.entity';
 
-const newCompany = () =>
-  Company.register({ name: 'Acme Ltd', country: 'HU', taxId: 'HU12345678', billingEmail: 'billing@acme.example' });
+const newCompany = () => Company.register({ name: 'Acme Ltd', country: 'HU', taxId: 'HU12345678', billingEmail: 'billing@acme.example' });
 
 describe('Company', () => {
   it('registers as PENDING_PAYMENT: never active before paying', () => {
@@ -46,7 +45,7 @@ describe('Company', () => {
 describe('User', () => {
   it('is created as an ADMIN of the given company', () => {
     const user = User.createAdmin({ email: 'jane@acme.example', fullName: 'Jane Doe', companyId: 'company-1' });
-    expect(user).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe', role: UserRole.ADMIN, companyId: 'company-1' });
+    expect(user).toMatchObject({ email: 'jane@acme.example', fullName: 'Jane Doe', companyId: 'company-1' });
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

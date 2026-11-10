@@ -24,5 +24,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 
-# NODE_ENV is NOT set here: the deployment decides (production refuses the mock provider and the example JWT secret).
+# NODE_ENV is NOT set here: the deployment must set it, or the app refuses to start (production refuses the mock
+# provider and the example JWT secret, and does not serve Swagger).
 CMD ["node", "dist/main.js"]

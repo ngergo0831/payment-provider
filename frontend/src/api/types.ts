@@ -14,7 +14,7 @@ export interface RegisterRequest {
 }
 
 export interface RegisteredAccount {
-  user: { id: string; email: string; fullName: string; role: string };
+  user: { id: string; email: string; fullName: string };
   company: { id: string; name: string; status: CompanyStatus };
   accessToken: string;
 }
@@ -50,8 +50,8 @@ export type ErrorCode =
   | 'VALIDATION_FAILED'
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'TOO_MANY_REQUESTS'
   | 'EMAIL_ALREADY_REGISTERED'
   | 'COMPANY_NOT_FOUND'
   | 'COMPANY_ALREADY_ACTIVE'

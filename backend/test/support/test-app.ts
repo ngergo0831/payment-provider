@@ -3,8 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import pg from 'pg';
 import request from 'supertest';
+import { ConfigService } from '@nestjs/config';
 import { AppLogger } from '../../src/common/logging/app-logger';
-import { LogSink } from '../../src/common/logging/log-sink';
+import type { AppConfig } from '../../src/config/configuration';
 
 export interface TestApp {
   app: INestApplication;
@@ -27,6 +28,7 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
     throw new Error(
       `Cannot reach PostgreSQL for the e2e tests (${(error as Error).message}).\n` +
         'Start it first:  docker compose up -d   (from the repository root)',
+      { cause: error },
     );
   }
   try {
@@ -39,10 +41,18 @@ async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Prom
 export interface TestAppOptions {
   beforeInit?: (app: INestApplication) => void;
   env?: Record<string, string>;
-  logSink?: LogSink;
 }
 
-export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOptions = {}): Promise<TestApp> {
+let firstProvider: string | undefined;
+
+export async function createTestApp({ beforeInit, env = {} }: TestAppOptions = {}): Promise<TestApp> {
+  // AppModule decides which modules exist (the mock's dev endpoints) when it is first imported, once per test file.
+  const provider = env.PAYMENT_PROVIDER ?? 'mock';
+  firstProvider ??= provider;
+  if (provider !== firstProvider) {
+    throw new Error(`One test file cannot boot apps with different PAYMENT_PROVIDERs (${firstProvider}, then ${provider})`);
+  }
+
   const dbName = `e2e_${randomBytes(6).toString('hex')}`;
   await withAdminClient((client) => client.query(`CREATE DATABASE "${dbName}"`));
 
@@ -70,6 +80,8 @@ export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOp
     LOG_FORMAT: 'text',
     OUTBOX_POLL_INTERVAL_MS: '0',
     RECONCILE_INTERVAL_MS: '0',
+    // Every test client shares one IP; a test of the limit itself sets a low value.
+    RATE_LIMIT_PER_MINUTE: '10000',
     ...env,
   });
 
@@ -83,10 +95,10 @@ export async function createTestApp({ beforeInit, env = {}, logSink }: TestAppOp
     const { configureApp } = await import('../../src/app.setup');
 
     const builder = Test.createTestingModule({ imports: [AppModule] });
-    if (logSink) builder.overrideProvider(LogSink).useValue(logSink);
     const moduleRef = await builder.compile();
     app = moduleRef.createNestApplication({ rawBody: true, bufferLogs: true });
-    app.useLogger(app.get(AppLogger));
+    const config = app.get<ConfigService<AppConfig, true>>(ConfigService);
+    app.useLogger(new AppLogger(config.get('logLevel', { infer: true }), config.get('logFormat', { infer: true })));
     configureApp(app);
     // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
     beforeInit?.(app);

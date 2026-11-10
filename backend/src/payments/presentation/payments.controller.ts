@@ -8,11 +8,12 @@ import {
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthenticatedUser } from '../../auth/domain/authenticated-user';
-import { CurrentUser } from '../../auth/presentation/current-user.decorator';
-import { JwtAuthGuard } from '../../auth/presentation/jwt-auth.guard';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { AuthenticatedUser, CurrentUser } from '../../auth/current-user.decorator';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { ErrorResponse } from '../../common/http/error-response';
 import { GetPaymentUseCase } from '../application/use-cases/get-payment.use-case';
 import { StartPaymentUseCase } from '../application/use-cases/start-payment.use-case';
@@ -33,6 +34,7 @@ export class PaymentsController {
    * The company always comes from the token: a caller cannot start a payment for someone else.
    */
   @Post()
+  @UseGuards(ThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Start paying for the plan, or resume the payment already in progress',
@@ -47,12 +49,16 @@ export class PaymentsController {
   @ApiNotFoundResponse({ type: ErrorResponse, description: 'COMPANY_NOT_FOUND: the token outlived its company' })
   @ApiServiceUnavailableResponse({ type: ErrorResponse, description: 'PAYMENT_PROVIDER_UNAVAILABLE: nothing was charged; retry shortly' })
   @ApiBadGatewayResponse({ type: ErrorResponse, description: 'PAYMENT_PROVIDER_ERROR: the provider rejected our request' })
+  @ApiTooManyRequestsResponse({ type: ErrorResponse, description: 'TOO_MANY_REQUESTS: retry in a minute' })
   async start(@CurrentUser() user: AuthenticatedUser): Promise<PaymentCheckoutDto> {
     return PaymentCheckoutDto.from(await this.startPayment.execute(user.companyId));
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Current status of one payment (cheap to poll)', description: 'Reads our stored record; the provider is not called.' })
+  @ApiOperation({
+    summary: 'Current status of one payment (cheap to poll)',
+    description: 'Reads our stored record; the provider is not called.',
+  })
   @ApiOkResponse({ type: PaymentDto })
   @ApiUnauthorizedResponse({ type: ErrorResponse, description: 'UNAUTHORIZED' })
   @ApiNotFoundResponse({ type: ErrorResponse, description: "PAYMENT_NOT_FOUND (also returned for another company's payment)" })

@@ -1,6 +1,5 @@
 import Stripe from 'stripe';
 import { PaymentProvider } from '../src/payments/application/ports/payment-provider';
-import { MockPaymentProvider } from '../src/payments/infrastructure/providers/mock-payment.provider';
 import { StripePaymentProvider } from '../src/payments/infrastructure/providers/stripe-payment.provider';
 import { createTestApp, TestApp } from './support/test-app';
 
@@ -12,26 +11,9 @@ const STRIPE_ENV = {
 };
 const signer = new Stripe('sk_test_not_a_real_key');
 
+// Its own file: the app's module graph (e.g. whether the mock's dev endpoints exist) is fixed by the first app a test
+// file boots, so one file cannot boot both providers.
 describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
-  describe('PAYMENT_PROVIDER=mock (the default)', () => {
-    let t: TestApp;
-    beforeAll(async () => {
-      t = await createTestApp();
-    });
-    afterAll(async () => {
-      await t.close();
-    });
-
-    it('uses the mock provider', () => {
-      expect(t.app.get(PaymentProvider)).toBeInstanceOf(MockPaymentProvider);
-    });
-
-    it('publishes the config the browser needs, with no key, to anyone (no JWT)', async () => {
-      const res = await t.http.get('/checkout-config').expect(200);
-      expect(res.body).toEqual({ provider: 'mock', publishableKey: null, price: { amountMinor: 4900, currency: 'USD' } });
-    });
-  });
-
   describe('PAYMENT_PROVIDER=stripe', () => {
     let t: TestApp;
     beforeAll(async () => {
@@ -48,7 +30,11 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
     describe('GET /checkout-config', () => {
       it('publishes the PUBLISHABLE key and the price', async () => {
         const res = await t.http.get('/checkout-config').expect(200);
-        expect(res.body).toEqual({ provider: 'stripe', publishableKey: 'pk_test_public_dummy_key', price: { amountMinor: 4900, currency: 'USD' } });
+        expect(res.body).toEqual({
+          provider: 'stripe',
+          publishableKey: 'pk_test_public_dummy_key',
+          price: { amountMinor: 4900, currency: 'USD' },
+        });
       });
 
       it('never exposes the secret key or the webhook secret, anywhere in the response', async () => {
@@ -70,7 +56,11 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
       });
       const post = (body: object, options: { secret?: string; timestamp?: number; resend?: string } = {}) => {
         const payload = JSON.stringify(body, null, 2);
-        const header = signer.webhooks.generateTestHeaderString({ payload, secret: options.secret ?? STRIPE_ENV.STRIPE_WEBHOOK_SECRET, timestamp: options.timestamp });
+        const header = signer.webhooks.generateTestHeaderString({
+          payload,
+          secret: options.secret ?? STRIPE_ENV.STRIPE_WEBHOOK_SECRET,
+          timestamp: options.timestamp,
+        });
         return t.http
           .post('/webhooks/payments')
           .set('Content-Type', 'application/json')
@@ -101,9 +91,14 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
         await post(event(), { timestamp: Math.floor(Date.now() / 1000) - 3600 }).expect(400);
       });
 
-      it('rejects a missing signature, and a signature in the mock\'s header', async () => {
+      it("rejects a missing signature, and a signature in the mock's header", async () => {
         await t.http.post('/webhooks/payments').set('Content-Type', 'application/json').send(JSON.stringify(event())).expect(400);
-        await t.http.post('/webhooks/payments').set('Content-Type', 'application/json').set('x-mock-signature', 'mock-signature').send(JSON.stringify(event())).expect(400);
+        await t.http
+          .post('/webhooks/payments')
+          .set('Content-Type', 'application/json')
+          .set('x-mock-signature', 'mock-signature')
+          .send(JSON.stringify(event()))
+          .expect(400);
       });
 
       it('acknowledges events it does not handle', async () => {

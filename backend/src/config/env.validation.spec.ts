@@ -2,7 +2,7 @@ import { Environment, validateEnv } from './env.validation';
 
 const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
 const JWT_SECRET = 'unit-test-secret-that-is-32-chars+';
-const valid = { DATABASE_URL, JWT_SECRET };
+const valid = { NODE_ENV: 'development', PAYMENT_PROVIDER: 'mock', DATABASE_URL, JWT_SECRET };
 const stripe = {
   PAYMENT_PROVIDER: 'stripe',
   STRIPE_SECRET_KEY: 'sk_test_abc123',
@@ -11,9 +11,8 @@ const stripe = {
 };
 
 describe('validateEnv', () => {
-  it('applies defaults for everything except the required secrets', () => {
+  it('applies defaults for everything except the required settings', () => {
     const env = validateEnv(valid);
-    expect(env.NODE_ENV).toBe(Environment.Development);
     expect(env.PORT).toBe(3000);
     expect(env.DATABASE_URL).toBe(DATABASE_URL);
     expect(env.JWT_EXPIRES_IN).toBe('24h');
@@ -49,6 +48,14 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...valid, [name]: value })).not.toThrow(/greater than|less than/);
   });
 
+  it.each(['NODE_ENV', 'PAYMENT_PROVIDER'])(
+    'requires %s: a deploy that forgot it must not fall back to development or the mock',
+    (name) => {
+      const { [name]: _removed, ...without } = valid as Record<string, string>;
+      expect(() => validateEnv(without)).toThrow(new RegExp(`${name} must be one of`));
+    },
+  );
+
   it('rejects an unknown NODE_ENV', () => {
     expect(() => validateEnv({ ...valid, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });
@@ -67,7 +74,8 @@ describe('validateEnv', () => {
 
   describe('DATABASE_URL', () => {
     it('is required', () => {
-      expect(() => validateEnv({ JWT_SECRET })).toThrow(/DATABASE_URL/);
+      const { DATABASE_URL: _removed, ...without } = valid;
+      expect(() => validateEnv(without)).toThrow(/DATABASE_URL/);
     });
 
     it.each([
@@ -100,18 +108,19 @@ describe('validateEnv', () => {
 
   describe('JWT_SECRET', () => {
     it('is required', () => {
-      expect(() => validateEnv({ DATABASE_URL })).toThrow(/JWT_SECRET/);
+      const { JWT_SECRET: _removed, ...without } = valid;
+      expect(() => validateEnv(without)).toThrow(/JWT_SECRET/);
     });
 
     it('must be at least 32 characters (shorter is brute-forceable)', () => {
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(31) })).toThrow(/JWT_SECRET/);
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: 'x'.repeat(32) })).not.toThrow();
+      expect(() => validateEnv({ ...valid, JWT_SECRET: 'x'.repeat(31) })).toThrow(/JWT_SECRET/);
+      expect(() => validateEnv({ ...valid, JWT_SECRET: 'x'.repeat(32) })).not.toThrow();
     });
 
     it('never appears in the error message', () => {
       expect.assertions(1);
       try {
-        validateEnv({ DATABASE_URL, JWT_SECRET: 'short-but-secret' });
+        validateEnv({ ...valid, JWT_SECRET: 'short-but-secret' });
       } catch (error) {
         expect((error as Error).message).not.toContain('short-but-secret');
       }
@@ -122,16 +131,18 @@ describe('validateEnv', () => {
     const exampleSecret = 'dev-only-secret-change-me-it-must-be-32+chars';
 
     it('is fine for development and tests', () => {
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'development' })).not.toThrow();
-      expect(() => validateEnv({ DATABASE_URL, JWT_SECRET: exampleSecret, NODE_ENV: 'test' })).not.toThrow();
+      expect(() => validateEnv({ ...valid, JWT_SECRET: exampleSecret, NODE_ENV: 'development' })).not.toThrow();
+      expect(() => validateEnv({ ...valid, JWT_SECRET: exampleSecret, NODE_ENV: 'test' })).not.toThrow();
     });
 
     it('is REFUSED in production, because anyone who has read the repository knows it', () => {
-      expect(() => validateEnv({ DATABASE_URL, ...stripe, JWT_SECRET: exampleSecret, NODE_ENV: 'production' })).toThrow(/public development example/);
+      expect(() => validateEnv({ ...valid, ...stripe, JWT_SECRET: exampleSecret, NODE_ENV: 'production' })).toThrow(
+        /public development example/,
+      );
     });
 
     it('a real secret works in production', () => {
-      expect(() => validateEnv({ DATABASE_URL, ...stripe, JWT_SECRET: 'x'.repeat(48), NODE_ENV: 'production' })).not.toThrow();
+      expect(() => validateEnv({ ...valid, ...stripe, JWT_SECRET: 'x'.repeat(48), NODE_ENV: 'production' })).not.toThrow();
     });
   });
 
@@ -146,12 +157,6 @@ describe('validateEnv', () => {
   });
 
   describe('PAYMENT_PROVIDER', () => {
-    it('defaults to the mock, which needs no keys', () => {
-      const env = validateEnv(valid);
-      expect(env.PAYMENT_PROVIDER).toBe('mock');
-      expect(env.STRIPE_SECRET_KEY).toBeUndefined();
-    });
-
     it('accepts Stripe when all three keys are present and well-formed', () => {
       expect(validateEnv({ ...valid, ...stripe })).toMatchObject({ PAYMENT_PROVIDER: 'stripe', STRIPE_SECRET_KEY: 'sk_test_abc123' });
     });
@@ -178,7 +183,9 @@ describe('validateEnv', () => {
       });
 
       it('accepts live keys too (the key itself decides test vs live)', () => {
-        expect(() => validateEnv({ ...valid, ...stripe, STRIPE_SECRET_KEY: 'sk_live_abc', STRIPE_PUBLISHABLE_KEY: 'pk_live_abc' })).not.toThrow();
+        expect(() =>
+          validateEnv({ ...valid, ...stripe, STRIPE_SECRET_KEY: 'sk_live_abc', STRIPE_PUBLISHABLE_KEY: 'pk_live_abc' }),
+        ).not.toThrow();
       });
 
       it('never puts a key in the error message', () => {
@@ -196,11 +203,13 @@ describe('validateEnv', () => {
     });
 
     it('the mock is REFUSED in production: its webhook "signature" is public, so anyone could fake a payment', () => {
-      expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48) })).toThrow(/PAYMENT_PROVIDER=mock is not allowed/);
+      expect(() => validateEnv({ ...valid, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(48) })).toThrow(
+        /PAYMENT_PROVIDER=mock is not allowed/,
+      );
     });
 
     it('reports every production problem in ONE error, so a bad deploy is fixed in one go', () => {
-      const production = { DATABASE_URL: valid.DATABASE_URL, NODE_ENV: 'production', JWT_SECRET: `dev-only-${'x'.repeat(32)}`, PLAN_CURRENCY: 'BTC' };
+      const production = { ...valid, NODE_ENV: 'production', JWT_SECRET: `dev-only-${'x'.repeat(32)}`, PLAN_CURRENCY: 'BTC' };
 
       expect(() => validateEnv(production)).toThrow(/Unsupported currency[\s\S]*PAYMENT_PROVIDER=mock[\s\S]*JWT_SECRET is the public/);
     });
@@ -225,6 +234,16 @@ describe('validateEnv', () => {
 
     it.each([['-1'], ['1.5'], ['fast'], ['']])('rejects %j', (value) => {
       expect(() => validateEnv({ ...valid, OUTBOX_POLL_INTERVAL_MS: value })).toThrow(/OUTBOX_POLL_INTERVAL_MS/);
+    });
+  });
+
+  describe('RATE_LIMIT_PER_MINUTE', () => {
+    it('defaults to 20', () => {
+      expect(validateEnv(valid).RATE_LIMIT_PER_MINUTE).toBe(20);
+    });
+
+    it.each([['0'], ['-1'], ['many'], ['']])('rejects %j (there is no "off")', (value) => {
+      expect(() => validateEnv({ ...valid, RATE_LIMIT_PER_MINUTE: value })).toThrow(/RATE_LIMIT_PER_MINUTE/);
     });
   });
 

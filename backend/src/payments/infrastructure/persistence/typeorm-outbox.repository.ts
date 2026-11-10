@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThan, LessThanOrEqual, Repository } from 'typeorm';
+import { IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { OutboxRepository, QueuedMessage } from '../../application/ports/repositories';
 import { OutboxRecord } from './outbox.record';
 
@@ -10,10 +10,10 @@ export class TypeOrmOutboxRepository extends OutboxRepository {
     super();
   }
 
-  async findDue(now: Date, maxAttempts: number, limit: number): Promise<QueuedMessage[]> {
+  async findDue(now: Date, limit: number): Promise<QueuedMessage[]> {
     const rows = await this.records.find({
-      where: { processedAt: IsNull(), availableAt: LessThanOrEqual(now), attempts: LessThan(maxAttempts) },
-      order: { createdAt: 'ASC' },
+      where: { processedAt: IsNull(), availableAt: LessThanOrEqual(now) },
+      order: { availableAt: 'ASC' },
       take: limit,
     });
     return rows.map((row) => ({ id: row.id, type: row.type, payload: row.payload, attempts: row.attempts }));

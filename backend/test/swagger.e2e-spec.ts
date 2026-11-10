@@ -26,9 +26,7 @@ describe('Swagger / OpenAPI', () => {
 
     it('documents the shared error shape, with every field a client relies on', () => {
       const schema = buildOpenApiDocument(t.app).components?.schemas?.ErrorResponse as { properties: Record<string, unknown> };
-      expect(Object.keys(schema.properties).sort()).toEqual(
-        ['code', 'details', 'message', 'requestId', 'statusCode', 'timestamp'].sort(),
-      );
+      expect(Object.keys(schema.properties).sort()).toEqual(['code', 'details', 'message', 'requestId', 'statusCode', 'timestamp'].sort());
     });
 
     it('lists the error codes as an enum, so clients can generate types from them', () => {

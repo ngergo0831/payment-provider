@@ -38,8 +38,6 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
     const request = t.http.post('/webhooks/payments').set('Content-Type', 'application/json');
     return (signature === null ? request : request.set(HEADER, signature)).send(JSON.stringify(body));
   };
-  const inboxRow = (eventId: string) =>
-    queryDatabase<{ processed_at: Date | null }>(t.databaseUrl, `SELECT processed_at FROM webhook_events WHERE provider_event_id = '${eventId}'`);
 
   describe('the webhook endpoint', () => {
     it('applies a correctly signed notification: the payment is SUCCEEDED, with no customer action involved', async () => {
@@ -65,10 +63,22 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
 
       expect(missing.body).toMatchObject({ statusCode: 400, code: 'INVALID_WEBHOOK_SIGNATURE', requestId: expect.any(String) });
       expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED');
-      expect(await inboxRow('evt_forged')).toHaveLength(0);
     });
 
-    it('recognises a redelivery of the same event as a DUPLICATE', async () => {
+    it('acknowledges (200 CONFLICT) a notification whose payment no longer matches ours, instead of a 500 retried for days', async () => {
+      const admin = await newAdmin();
+      const { body } = await admin.start().expect(200);
+      await simulate(body.payment.providerRef, 'succeed', false).expect(200);
+      await queryDatabase(t.databaseUrl, `UPDATE payments SET amount_minor = 100 WHERE id = '${body.payment.id}'`);
+
+      const hook = signedMockWebhook(body.payment.providerRef, body.payment.id);
+      const res = await deliver(JSON.parse(hook.rawBody.toString())).expect(200);
+
+      expect(res.body).toEqual({ received: true, result: 'CONFLICT' });
+      expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED');
+    });
+
+    it('handles a redelivery of the same event again, harmlessly', async () => {
       const admin = await newAdmin();
       const { body } = await admin.start().expect(200);
       await simulate(body.payment.providerRef, 'succeed', false).expect(200);
@@ -78,10 +88,11 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const second = await deliver(event).expect(200);
 
       expect(first.body.result).toBe('PROCESSED');
-      expect(second.body.result).toBe('DUPLICATE');
+      expect(second.body.result).toBe('PROCESSED');
+      expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('SUCCEEDED');
     });
 
-    it('five simultaneous deliveries of the same event are handled once, with ONE "payment succeeded" message', async () => {
+    it('five simultaneous deliveries of the same event queue ONE "payment succeeded" message', async () => {
       const admin = await newAdmin();
       const { body } = await admin.start().expect(200);
       await simulate(body.payment.providerRef, 'succeed', false).expect(200);
@@ -90,9 +101,11 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const responses = await Promise.all(Array.from({ length: 5 }, () => deliver(event)));
 
       expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200, 200]);
-      const messages = await queryDatabase(t.databaseUrl, `SELECT 1 FROM outbox_messages WHERE payload->>'paymentId' = '${body.payment.id}'`);
+      const messages = await queryDatabase(
+        t.databaseUrl,
+        `SELECT 1 FROM outbox_messages WHERE payload->>'paymentId' = '${body.payment.id}'`,
+      );
       expect(messages).toHaveLength(1);
-      expect(await inboxRow('evt_race_1')).toHaveLength(1);
     });
 
     it('acknowledges (200) events about payments that are not ours, so the provider stops retrying', async () => {
@@ -110,8 +123,8 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
     });
   });
 
-  describe('when handling fails part-way (provider down), the provider\'s retry still works', () => {
-    it('answers 503 and does NOT mark the event processed; the retry after recovery succeeds', async () => {
+  describe("when handling fails part-way (provider down), the provider's retry still works", () => {
+    it('answers 503, so the provider retries; the retry after recovery succeeds', async () => {
       const admin = await newAdmin();
       const { body } = await admin.start().expect(200);
       await simulate(body.payment.providerRef, 'succeed', false).expect(200);
@@ -120,7 +133,6 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       provider.setOutage(true);
       const down = await deliver(event).expect(503);
       expect(down.body.code).toBe('PAYMENT_PROVIDER_UNAVAILABLE');
-      expect(await inboxRow('evt_retry_1')).toEqual([{ processed_at: null }]);
 
       provider.setOutage(false);
       const retry = await deliver(event).expect(200);
@@ -184,9 +196,9 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       expect(res.body.details).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'outcome' })]));
     });
 
-    it('an unknown payment reference is a clean provider error, not a crash', async () => {
-      const res = await simulate('mock_pi_does_not_exist', 'succeed').expect(502);
-      expect(res.body.code).toBe('PAYMENT_PROVIDER_ERROR');
+    it('an unknown payment reference is a clean 404, not a crash', async () => {
+      const res = await simulate('mock_pi_does_not_exist', 'succeed').expect(404);
+      expect(res.body.code).toBe('NOT_FOUND');
     });
   });
 

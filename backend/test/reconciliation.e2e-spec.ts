@@ -8,6 +8,7 @@ import { companyStatus, registerCompany, waitForActivation } from './support/com
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const DAY_MINUTES = 24 * 60;
 
 describe('reconciliation (real PostgreSQL)', () => {
   let t: TestApp;
@@ -31,48 +32,62 @@ describe('reconciliation (real PostgreSQL)', () => {
       await q.close();
     });
 
-    const seed = async (columns: { status?: string; providerRef?: string | null; createdMinutesAgo: number; syncedMinutesAgo?: number }) => {
+    const seed = async (columns: {
+      status?: string;
+      provider?: string;
+      providerRef?: string | null;
+      createdMinutesAgo: number;
+      syncedMinutesAgo?: number;
+    }) => {
       const { companyId } = await registerCompany(q);
       const id: string = randomUUID();
       const ref = columns.providerRef === undefined ? `pi_${id}` : columns.providerRef;
       await queryDatabase(
         q.databaseUrl,
         `INSERT INTO payments (id, company_id, provider, provider_ref, amount_minor, currency, status, created_at, updated_at, last_synced_at)
-         VALUES ('${id}', '${companyId}', 'mock', ${ref === null ? 'NULL' : `'${ref}'`}, 4900, 'USD', '${columns.status ?? 'CREATED'}',
+         VALUES ('${id}', '${companyId}', '${columns.provider ?? 'mock'}', ${ref === null ? 'NULL' : `'${ref}'`}, 4900, 'USD', '${columns.status ?? 'CREATED'}',
                  '${ago(columns.createdMinutesAgo)}', '${ago(columns.createdMinutesAgo)}',
                  ${columns.syncedMinutesAgo === undefined ? 'NULL' : `'${ago(columns.syncedMinutesAgo)}'`})`,
       );
       return id;
     };
     const due = async (limit = 100) =>
-      (await q.app.get(PaymentRepository).findDueForReconciliation({
-        notSyncedSince: new Date(Date.now() - 2 * 60_000),
-        createdAfter: new Date(Date.now() - 24 * 60 * 60_000),
-        limit,
-      })).map((payment) => payment.id);
+      (
+        await q.app.get(PaymentRepository).findDueForReconciliation({
+          provider: 'mock',
+          now: new Date(),
+          minQuietMs: 2 * 60_000,
+          quietFractionOfAge: 0.1,
+          createdAfter: new Date(Date.now() - 30 * DAY_MINUTES * 60_000),
+          limit,
+        })
+      ).map((payment) => payment.id);
 
-    it('includes open, linked payments that have been quiet, and excludes everything else', async () => {
+    it('includes open, linked payments quiet for 2 minutes or a tenth of their age, and excludes everything else', async () => {
       const neverSynced = await seed({ createdMinutesAgo: 10 });
-      const syncedLongAgo = await seed({ createdMinutesAgo: 60, syncedMinutesAgo: 5 });
+      const syncedLongAgo = await seed({ createdMinutesAgo: 60, syncedMinutesAgo: 10 });
       const failedButOpen = await seed({ status: 'FAILED', createdMinutesAgo: 10 });
       const syncedJustNow = await seed({ createdMinutesAgo: 60, syncedMinutesAgo: 1 });
+      const oldAndDue = await seed({ status: 'PROCESSING', createdMinutesAgo: 10 * DAY_MINUTES, syncedMinutesAgo: 2 * DAY_MINUTES });
+      const oldAndRecentlySynced = await seed({ status: 'PROCESSING', createdMinutesAgo: 10 * DAY_MINUTES, syncedMinutesAgo: 120 });
       const notLinkedYet = await seed({ createdMinutesAgo: 10, providerRef: null });
       const alreadyPaid = await seed({ status: 'SUCCEEDED', createdMinutesAgo: 10 });
       const canceled = await seed({ status: 'CANCELED', createdMinutesAgo: 10 });
-      const abandoned = await seed({ createdMinutesAgo: 30 * 60 });
+      const abandoned = await seed({ createdMinutesAgo: 31 * DAY_MINUTES });
+      const otherProvider = await seed({ provider: 'stripe', createdMinutesAgo: 10 });
 
       const result = await due();
 
-      expect(result).toEqual(expect.arrayContaining([neverSynced, syncedLongAgo, failedButOpen]));
-      for (const excluded of [syncedJustNow, notLinkedYet, alreadyPaid, canceled, abandoned]) {
+      expect(result).toEqual(expect.arrayContaining([neverSynced, syncedLongAgo, failedButOpen, oldAndDue]));
+      for (const excluded of [syncedJustNow, oldAndRecentlySynced, notLinkedYet, alreadyPaid, canceled, abandoned, otherProvider]) {
         expect(result).not.toContain(excluded);
       }
     });
 
     it('puts the least recently synced first, so no payment starves behind busier ones', async () => {
-      const oldest = await seed({ createdMinutesAgo: 100, syncedMinutesAgo: 90 });
-      const middle = await seed({ createdMinutesAgo: 100, syncedMinutesAgo: 20 });
-      const newest = await seed({ createdMinutesAgo: 100, syncedMinutesAgo: 5 });
+      const oldest = await seed({ createdMinutesAgo: 40, syncedMinutesAgo: 35 });
+      const middle = await seed({ createdMinutesAgo: 40, syncedMinutesAgo: 20 });
+      const newest = await seed({ createdMinutesAgo: 40, syncedMinutesAgo: 5 });
 
       const order = (await due()).filter((id) => [oldest, middle, newest].includes(id));
 
@@ -93,7 +108,10 @@ describe('reconciliation (real PostgreSQL)', () => {
       const { auth } = company;
       const { body } = await t.http.post('/payments').set(auth).expect(200);
       provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
-      await queryDatabase(t.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
+      await queryDatabase(
+        t.databaseUrl,
+        `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`,
+      );
 
       const report = await t.app.get(ReconcilePaymentsUseCase).execute();
       expect(report.failed).toBe(0);
@@ -109,7 +127,10 @@ describe('reconciliation (real PostgreSQL)', () => {
       const { auth } = await registerCompany(t);
       const { body } = await t.http.post('/payments').set(auth).expect(200);
       provider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
-      await queryDatabase(t.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
+      await queryDatabase(
+        t.databaseUrl,
+        `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`,
+      );
 
       provider.setOutage(true);
       const down = await t.app.get(ReconcilePaymentsUseCase).execute();
@@ -131,7 +152,10 @@ describe('reconciliation (real PostgreSQL)', () => {
         const company = await registerCompany(timed);
         const { body } = await timed.http.post('/payments').set(company.auth).expect(200);
         timedProvider.simulate(body.payment.providerRef, MockOutcome.SUCCEED);
-        await queryDatabase(timed.databaseUrl, `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`);
+        await queryDatabase(
+          timed.databaseUrl,
+          `UPDATE payments SET created_at = '${ago(10)}', last_synced_at = '${ago(10)}' WHERE id = '${body.payment.id}'`,
+        );
 
         expect(await waitForActivation(timed, company)).toBe('ACTIVE');
       } finally {

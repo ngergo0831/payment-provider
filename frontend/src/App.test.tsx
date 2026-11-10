@@ -21,7 +21,7 @@ const active = { company: { id: 'c1', name: 'Acme Kft', status: 'ACTIVE' as cons
 
 function mockBackend() {
   vi.spyOn(api, 'register').mockResolvedValue({
-    user: { id: 'u1', email: 'jane@acme.example', fullName: 'Jane Doe', role: 'ADMIN' },
+    user: { id: 'u1', email: 'jane@acme.example', fullName: 'Jane Doe' },
     company: { id: 'c1', name: 'Acme Kft', status: 'PENDING_PAYMENT' },
     accessToken: 'tok',
   });

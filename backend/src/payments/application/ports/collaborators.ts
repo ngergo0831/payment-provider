@@ -5,12 +5,11 @@ export interface BillingProfile {
   isActive: boolean;
 }
 
+/** What payments needs from onboarding. */
 export abstract class CompanyGateway {
   abstract findBillingProfile(companyId: string): Promise<BillingProfile | null>;
-}
 
-/** Payments asks onboarding to activate a company that has paid. Must be idempotent: it may be asked more than once. */
-export abstract class CompanyActivation {
+  /** Activates a company that has paid. Must be idempotent: it may be asked more than once. */
   abstract activate(companyId: string): Promise<void>;
 }
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
-import { OPEN_STATUSES, PaymentStatus } from '../src/payments/domain/payment-status';
+import { LIVE_STATUSES, PaymentStatus } from '../src/payments/domain/payment-status';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 
 describe('database schema (real PostgreSQL)', () => {
@@ -19,6 +19,9 @@ describe('database schema (real PostgreSQL)', () => {
       'CreateCompaniesAndUsers1794237392899',
       'CreatePaymentsAndWebhookEvents1794239203917',
       'CreateOutboxMessages1794240546520',
+      'OneLivePaymentPerCompany1794300000000',
+      'DropUserRole1794310000000',
+      'DropWebhookEvents1794320000000',
     ]);
   });
 
@@ -27,7 +30,7 @@ describe('database schema (real PostgreSQL)', () => {
       t.databaseUrl,
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
     );
-    expect(tables.map((row) => row.table_name)).toEqual(['companies', 'migrations', 'outbox_messages', 'payments', 'users', 'webhook_events']);
+    expect(tables.map((row) => row.table_name)).toEqual(['companies', 'migrations', 'outbox_messages', 'payments', 'users']);
   });
 
   it('matches the entities exactly: no drift between the hand-written migrations and the code', async () => {
@@ -36,8 +39,8 @@ describe('database schema (real PostgreSQL)', () => {
     expect(pending.upQueries.map((q) => q.query)).toEqual([]);
   });
 
-  describe('the "one open payment per company" index agrees with the domain', () => {
-    // The migration lists the open statuses as SQL text; the domain defines them as code. If they ever drift
+  describe('the "one live payment per company" index agrees with the domain', () => {
+    // The migration lists the live statuses as SQL text; the domain defines them as code. If they ever drift
     // apart, the double-charge guard would silently protect the wrong thing. So check every status, for real.
     const insertPayment = (status: string, companyForRow: string) =>
       queryDatabase(
@@ -46,7 +49,7 @@ describe('database schema (real PostgreSQL)', () => {
          VALUES ('${randomUUID()}', '${companyForRow}', 'mock', 4900, 'USD', '${status}', now(), now())`,
       );
 
-    it.each(Object.values(PaymentStatus))('a %s payment blocks a second open payment only if it is itself open', async (status) => {
+    it.each(Object.values(PaymentStatus))('a %s payment blocks a second payment only if it is itself live', async (status) => {
       const company = randomUUID();
       await queryDatabase(
         t.databaseUrl,
@@ -56,8 +59,8 @@ describe('database schema (real PostgreSQL)', () => {
 
       const second = insertPayment(PaymentStatus.CREATED, company);
 
-      if ((OPEN_STATUSES as readonly string[]).includes(status)) {
-        await expect(second).rejects.toThrow(/uq_payments_one_open_per_company/);
+      if ((LIVE_STATUSES as readonly string[]).includes(status)) {
+        await expect(second).rejects.toThrow(/uq_payments_one_live_per_company/);
       } else {
         await expect(second).resolves.toBeDefined();
       }

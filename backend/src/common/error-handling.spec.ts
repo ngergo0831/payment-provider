@@ -121,11 +121,17 @@ describe('global error handling', () => {
 
   describe('validation', () => {
     it('accepts valid input', async () => {
-      await http.post('/test/validate').send({ email: 'a@b.co', company: { name: 'Acme' } }).expect(201);
+      await http
+        .post('/test/validate')
+        .send({ email: 'a@b.co', company: { name: 'Acme' } })
+        .expect(201);
     });
 
     it('returns 422 with a field-level list, including nested fields', async () => {
-      const res = await http.post('/test/validate').send({ email: 'nope', company: { name: 'A' } }).expect(422);
+      const res = await http
+        .post('/test/validate')
+        .send({ email: 'nope', company: { name: 'A' } })
+        .expect(422);
 
       expect(res.body.code).toBe('VALIDATION_FAILED');
       expect(res.body.details).toEqual(

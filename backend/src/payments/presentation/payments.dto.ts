@@ -22,7 +22,11 @@ export class PaymentDto {
   @ApiProperty({ type: String, nullable: true, example: 'card_declined', description: 'Why the last attempt failed; null otherwise' })
   failureCode: string | null;
 
-  @ApiProperty({ type: String, nullable: true, description: "The provider's own id for this payment; null until the provider has been contacted" })
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "The provider's own id for this payment; null until the provider has been contacted",
+  })
   providerRef: string | null;
 
   @ApiProperty({ type: String, format: 'date-time' }) createdAt: Date;

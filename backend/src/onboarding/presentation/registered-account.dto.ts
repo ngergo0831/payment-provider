@@ -1,14 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RegisteredAccount } from '../../onboarding/application/register-company-admin.use-case';
-import { CompanyStatus } from '../../onboarding/domain/company.entity';
-import { UserRole } from '../../onboarding/domain/user.entity';
-import { IssuedToken } from '../application/token-issuer';
+import { RegisteredAccount } from '../application/register-company-admin.use-case';
+import { CompanyStatus } from '../domain/company.entity';
 
 class RegisteredUserDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ example: 'jane.doe@acme.example' }) email: string;
   @ApiProperty({ example: 'Jane Doe' }) fullName: string;
-  @ApiProperty({ enum: UserRole }) role: UserRole;
 }
 
 class RegisteredCompanyDto {
@@ -28,11 +25,12 @@ export class RegisteredAccountDto {
   @ApiProperty({ example: 'Bearer' })
   tokenType: 'Bearer';
 
-  static from({ admin, company }: RegisteredAccount, token: IssuedToken): RegisteredAccountDto {
+  static from({ admin, company }: RegisteredAccount, accessToken: string): RegisteredAccountDto {
     return {
-      user: { id: admin.id, email: admin.email, fullName: admin.fullName, role: admin.role },
+      user: { id: admin.id, email: admin.email, fullName: admin.fullName },
       company: { id: company.id, name: company.name, status: company.status },
-      ...token,
+      accessToken,
+      tokenType: 'Bearer',
     };
   }
 }

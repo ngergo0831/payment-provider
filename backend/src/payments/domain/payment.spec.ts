@@ -147,7 +147,7 @@ describe('Payment.applyStatus', () => {
     expect(payment.updatedAt).toEqual(T1);
   });
 
-  it('never touches `version`: that is persistence\'s revision counter (optimistic locking), not ours', () => {
+  it("never touches `version`: that is persistence's revision counter (optimistic locking), not ours", () => {
     const payment = newPayment();
     payment.applyStatus(PROCESSING);
     payment.applyStatus(SUCCEEDED);
@@ -156,7 +156,7 @@ describe('Payment.applyStatus', () => {
 });
 
 describe('Payment.attachProviderRef', () => {
-  it('links the payment to the provider\'s record', () => {
+  it("links the payment to the provider's record", () => {
     const payment = newPayment();
     payment.attachProviderRef('pi_123', T1);
     expect(payment).toMatchObject({ providerRef: 'pi_123', updatedAt: T1 });
@@ -236,8 +236,12 @@ describe('invariants hold for any order of provider reports', () => {
         // 1. The outcome is exactly what the specification says.
         const expected =
           next === before.status
-            ? (next === FAILED && code && code !== before.failureCode ? TransitionOutcome.APPLIED : TransitionOutcome.UNCHANGED)
-            : canTransition(before.status, next) ? TransitionOutcome.APPLIED : TransitionOutcome.REJECTED;
+            ? next === FAILED && code && code !== before.failureCode
+              ? TransitionOutcome.APPLIED
+              : TransitionOutcome.UNCHANGED
+            : canTransition(before.status, next)
+              ? TransitionOutcome.APPLIED
+              : TransitionOutcome.REJECTED;
         expect(outcome).toBe(expected);
 
         // 2. A rejected or unchanged report leaves the payment byte-for-byte untouched.

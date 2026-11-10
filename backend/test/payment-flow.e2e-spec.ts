@@ -124,12 +124,18 @@ describe('the full payment flow (real HTTP + PostgreSQL)', () => {
       await payAndNotice(admin);
       await dispatcher.dispatchDue();
       const [{ id }] = await admin.outbox();
-      const activatedAt = await queryDatabase<{ activated_at: Date }>(t.databaseUrl, `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`);
+      const activatedAt = await queryDatabase<{ activated_at: Date }>(
+        t.databaseUrl,
+        `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`,
+      );
 
       await queryDatabase(t.databaseUrl, `UPDATE outbox_messages SET processed_at = NULL WHERE id = '${id}'`);
       expect(await dispatcher.dispatchDue()).toEqual({ delivered: 1, failed: 0 });
 
-      const again = await queryDatabase<{ activated_at: Date }>(t.databaseUrl, `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`);
+      const again = await queryDatabase<{ activated_at: Date }>(
+        t.databaseUrl,
+        `SELECT activated_at FROM companies WHERE id = '${admin.companyId}'`,
+      );
       expect(again).toEqual(activatedAt);
       expect(await admin.companyStatus()).toBe('ACTIVE');
     });

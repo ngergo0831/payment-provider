@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { Payment } from '../domain/payment';
 
 /**
- * A message that must be delivered AFTER a payment change was saved (the "outbox" pattern).
+ * A message that must be delivered after a payment change was saved (the "outbox" pattern).
  * It is stored in the same database transaction as the change, so the two can never get out of step:
- * either the payment is saved AND the message is queued, or neither is.
+ * either the payment is saved and the message is queued, or neither is.
  */
 export interface OutboxMessage {
   id: string;

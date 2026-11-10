@@ -35,7 +35,11 @@ if (!key || !key.startsWith('sk_test_')) {
     drive: async (providerRef, outcome) => {
       try {
         if (outcome === 'cancel') await client.paymentIntents.cancel(providerRef);
-        else await client.paymentIntents.confirm(providerRef, { payment_method: TEST_CARD[outcome], return_url: 'https://example.com/return' });
+        else
+          await client.paymentIntents.confirm(providerRef, {
+            payment_method: TEST_CARD[outcome],
+            return_url: 'https://example.com/return',
+          });
       } catch (error) {
         // A declined card makes `confirm` throw: that IS the outcome we asked for. Acting on an already-final payment
         // is also an error in Stripe, and "nothing happens" is exactly what the contract expects there.

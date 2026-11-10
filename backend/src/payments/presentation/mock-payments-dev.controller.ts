@@ -1,10 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
-import { AppConfig } from '../../config/configuration';
-import { Environment } from '../../config/env.validation';
-import { PaymentProvider } from '../application/ports/payment-provider';
+import { PaymentProvider, ProviderEvent, ProviderPaymentNotFoundError } from '../application/ports/payment-provider';
 import { EventHandlingResult, HandleProviderEventUseCase } from '../application/use-cases/handle-provider-event.use-case';
 import { MockOutcome, MockPaymentProvider } from '../infrastructure/providers/mock-payment.provider';
 
@@ -32,29 +29,34 @@ class OutageDto {
 
 /**
  * Plays "the customer" and "the provider's bad day" so every scenario can be tried from Swagger without a Stripe account.
- * It answers 404, as if it did not exist, unless the mock provider is in use and this is not production.
+ * Only registered when the mock provider is selected (see AppModule), and the mock is refused in production.
  */
 @ApiTags('dev (mock provider only)')
 @Controller('dev/mock-payments')
 export class MockPaymentsDevController {
+  private readonly mock: MockPaymentProvider;
+
   constructor(
-    private readonly provider: PaymentProvider,
+    provider: PaymentProvider,
     private readonly handleEvent: HandleProviderEventUseCase,
-    private readonly config: ConfigService<AppConfig, true>,
-  ) {}
+  ) {
+    if (!(provider instanceof MockPaymentProvider)) throw new Error('The mock payments dev endpoints need the mock payment provider');
+    this.mock = provider;
+  }
 
   @Post(':providerRef/simulate')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Simulate what the customer or bank does to a payment',
-    description: 'Use the `providerRef` returned by `POST /payments`. The provider then sends its webhook, exactly like the real one would.',
+    description:
+      'Use the `providerRef` returned by `POST /payments`. The provider then sends its webhook, exactly like the real one would.',
   })
   @ApiOkResponse({ description: 'The payment changed at the provider; the webhook was delivered unless deliverWebhook was false' })
   async simulate(
     @Param('providerRef') providerRef: string,
     @Body() dto: SimulateDto,
   ): Promise<{ webhook: EventHandlingResult | 'NOT_DELIVERED' }> {
-    const event = this.mock().simulate(providerRef, dto.outcome);
+    const event = this.simulateOrNotFound(providerRef, dto.outcome);
     if (dto.deliverWebhook === false) return { webhook: 'NOT_DELIVERED' };
     return { webhook: await this.handleEvent.execute(event) };
   }
@@ -64,14 +66,16 @@ export class MockPaymentsDevController {
   @ApiOperation({ summary: 'Make the fake provider fail every call (tests the "temporarily unavailable" path)' })
   @ApiOkResponse({ description: 'Outage switched on or off' })
   setOutage(@Body() dto: OutageDto): { outage: boolean } {
-    const mock = this.mock();
-    mock.setOutage(dto.enabled);
-    return { outage: mock.isOutage() };
+    this.mock.setOutage(dto.enabled);
+    return { outage: this.mock.isOutage() };
   }
 
-  private mock(): MockPaymentProvider {
-    const production = this.config.get('nodeEnv', { infer: true }) === Environment.Production;
-    if (production || !(this.provider instanceof MockPaymentProvider)) throw new NotFoundException();
-    return this.provider;
+  private simulateOrNotFound(providerRef: string, outcome: MockOutcome): ProviderEvent {
+    try {
+      return this.mock.simulate(providerRef, outcome);
+    } catch (error) {
+      if (error instanceof ProviderPaymentNotFoundError) throw new NotFoundException(`No mock payment ${providerRef}`);
+      throw error;
+    }
   }
 }

@@ -1,10 +1,9 @@
 import { CompanyRepository } from '../src/onboarding/application/ports';
 import { Company } from '../src/onboarding/domain/company.entity';
 import {
-  OpenPaymentAlreadyExistsError,
+  LivePaymentAlreadyExistsError,
   PaymentConcurrentModificationError,
   PaymentRepository,
-  WebhookEventRepository,
 } from '../src/payments/application/ports/repositories';
 import { Money } from '../src/payments/domain/money';
 import { Payment } from '../src/payments/domain/payment';
@@ -14,7 +13,6 @@ import { createTestApp, queryDatabase, TestApp } from './support/test-app';
 describe('payment persistence (real PostgreSQL)', () => {
   let t: TestApp;
   let payments: PaymentRepository;
-  let webhookEvents: WebhookEventRepository;
   let counter = 0;
 
   const newCompany = async (): Promise<string> => {
@@ -22,8 +20,7 @@ describe('payment persistence (real PostgreSQL)', () => {
     await t.app.get(CompanyRepository).save(company);
     return company.id;
   };
-  const newPayment = (companyId: string, amount = Money.of(4900, 'USD')) =>
-    Payment.start({ companyId, provider: 'mock', amount });
+  const newPayment = (companyId: string, amount = Money.of(4900, 'USD')) => Payment.start({ companyId, provider: 'mock', amount });
   const stored = async (companyId: string, status: PaymentStatus = PaymentStatus.CREATED) => {
     const payment = newPayment(companyId);
     if (status !== PaymentStatus.CREATED) payment.applyStatus(status);
@@ -34,7 +31,6 @@ describe('payment persistence (real PostgreSQL)', () => {
   beforeAll(async () => {
     t = await createTestApp();
     payments = t.app.get(PaymentRepository);
-    webhookEvents = t.app.get(WebhookEventRepository);
   });
   afterAll(async () => {
     await t.close();
@@ -62,25 +58,31 @@ describe('payment persistence (real PostgreSQL)', () => {
 
       expect((await payments.findById(payment.id))?.id).toBe(payment.id);
       expect((await payments.findByProviderRef('pi_find_me'))?.id).toBe(payment.id);
-      expect((await payments.findOpenByCompany(companyId))?.id).toBe(payment.id);
+      expect((await payments.findLiveByCompany(companyId))?.id).toBe(payment.id);
     });
 
     it('returns null when nothing matches', async () => {
       expect(await payments.findById('00000000-0000-4000-8000-000000000000')).toBeNull();
       expect(await payments.findByProviderRef('pi_nope')).toBeNull();
-      expect(await payments.findOpenByCompany(await newCompany())).toBeNull();
+      expect(await payments.findLiveByCompany(await newCompany())).toBeNull();
     });
 
-    it('does not report a FINAL payment as the open one', async () => {
+    it('reports a SUCCEEDED payment as the live one (paid, activation may still be pending)', async () => {
       const companyId = await newCompany();
-      await stored(companyId, PaymentStatus.SUCCEEDED);
-      expect(await payments.findOpenByCompany(companyId)).toBeNull();
+      const paid = await stored(companyId, PaymentStatus.SUCCEEDED);
+      expect((await payments.findLiveByCompany(companyId))?.id).toBe(paid.id);
+    });
+
+    it('does not report a CANCELED payment', async () => {
+      const companyId = await newCompany();
+      await stored(companyId, PaymentStatus.CANCELED);
+      expect(await payments.findLiveByCompany(companyId)).toBeNull();
     });
 
     it('still reports a FAILED payment as open: the customer can retry it', async () => {
       const companyId = await newCompany();
       const failed = await stored(companyId, PaymentStatus.FAILED);
-      expect((await payments.findOpenByCompany(companyId))?.id).toBe(failed.id);
+      expect((await payments.findLiveByCompany(companyId))?.id).toBe(failed.id);
     });
 
     it.each([
@@ -94,11 +96,11 @@ describe('payment persistence (real PostgreSQL)', () => {
     });
   });
 
-  describe('at most one open payment per company (the double-charge guard)', () => {
+  describe('at most one open or succeeded payment per company (the double-charge guard)', () => {
     it('refuses a second open payment for the same company', async () => {
       const companyId = await newCompany();
       await payments.insert(newPayment(companyId));
-      await expect(payments.insert(newPayment(companyId))).rejects.toBeInstanceOf(OpenPaymentAlreadyExistsError);
+      await expect(payments.insert(newPayment(companyId))).rejects.toBeInstanceOf(LivePaymentAlreadyExistsError);
     });
 
     it('allows another company its own open payment', async () => {
@@ -106,14 +108,17 @@ describe('payment persistence (real PostgreSQL)', () => {
       await expect(payments.insert(newPayment(await newCompany()))).resolves.toBeUndefined();
     });
 
-    it.each([PaymentStatus.SUCCEEDED, PaymentStatus.CANCELED])(
-      'allows a new payment once the previous one is %s (final)',
-      async (status) => {
-        const companyId = await newCompany();
-        await stored(companyId, status);
-        await expect(payments.insert(newPayment(companyId))).resolves.toBeUndefined();
-      },
-    );
+    it('refuses a new payment once the previous one SUCCEEDED: the company has paid', async () => {
+      const companyId = await newCompany();
+      await stored(companyId, PaymentStatus.SUCCEEDED);
+      await expect(payments.insert(newPayment(companyId))).rejects.toBeInstanceOf(LivePaymentAlreadyExistsError);
+    });
+
+    it('allows a new payment once the previous one was CANCELED', async () => {
+      const companyId = await newCompany();
+      await stored(companyId, PaymentStatus.CANCELED);
+      await expect(payments.insert(newPayment(companyId))).resolves.toBeUndefined();
+    });
 
     it('lets exactly ONE of five simultaneous "start payment" attempts win', async () => {
       const companyId = await newCompany();
@@ -122,7 +127,7 @@ describe('payment persistence (real PostgreSQL)', () => {
 
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
       for (const loser of results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')) {
-        expect(loser.reason).toBeInstanceOf(OpenPaymentAlreadyExistsError);
+        expect(loser.reason).toBeInstanceOf(LivePaymentAlreadyExistsError);
       }
       const rows = await queryDatabase(t.databaseUrl, `SELECT 1 FROM payments WHERE company_id = '${companyId}'`);
       expect(rows).toHaveLength(1);
@@ -204,8 +209,11 @@ describe('payment persistence (real PostgreSQL)', () => {
 
   describe('outbox: messages are saved in the SAME transaction as the payment change', () => {
     const message = (type = 'payment.succeeded') => ({ id: crypto.randomUUID(), type, payload: { paymentId: 'p', companyId: 'c' } });
-    const outboxRows = (id: string) => queryDatabase<{ type: string; payload: unknown; processed_at: Date | null; attempts: number }>(
-      t.databaseUrl, `SELECT type, payload, processed_at, attempts FROM outbox_messages WHERE id = '${id}'`);
+    const outboxRows = (id: string) =>
+      queryDatabase<{ type: string; payload: unknown; processed_at: Date | null; attempts: number }>(
+        t.databaseUrl,
+        `SELECT type, payload, processed_at, attempts FROM outbox_messages WHERE id = '${id}'`,
+      );
 
     it('queues the message together with the change, undelivered', async () => {
       const payment = await stored(await newCompany());
@@ -266,8 +274,13 @@ describe('payment persistence (real PostgreSQL)', () => {
   describe('rules enforced by the database itself', () => {
     const insert = (columns: Record<string, string | number>, companyId: string) => {
       const row = {
-        id: crypto.randomUUID(), company_id: companyId, provider: 'mock', amount_minor: 4900, currency: 'USD',
-        status: 'SUCCEEDED', ...columns,
+        id: crypto.randomUUID(),
+        company_id: companyId,
+        provider: 'mock',
+        amount_minor: 4900,
+        currency: 'USD',
+        status: 'SUCCEEDED',
+        ...columns,
       };
       const keys = Object.keys(row);
       return queryDatabase(
@@ -309,52 +322,6 @@ describe('payment persistence (real PostgreSQL)', () => {
     it('allows many payments that are not linked to a provider yet (NULL references do not collide)', async () => {
       await payments.insert(newPayment(await newCompany()));
       await expect(payments.insert(newPayment(await newCompany()))).resolves.toBeUndefined();
-    });
-  });
-
-  describe('webhook inbox', () => {
-    const event = (id: string) => ({ id, type: 'payment_intent.succeeded', payload: { data: { object: { id: 'pi_1' } }, n: 1 } });
-
-    it('records a new event as not yet processed', async () => {
-      expect(await webhookEvents.recordIfNew(event('evt_new'))).toEqual({ alreadyProcessed: false });
-
-      const [row] = await queryDatabase<{ type: string; processed_at: Date | null }>(
-        t.databaseUrl,
-        "SELECT type, processed_at FROM webhook_events WHERE provider_event_id = 'evt_new'",
-      );
-      expect(row).toEqual({ type: 'payment_intent.succeeded', processed_at: null });
-    });
-
-    it('stores the payload as JSON, exactly', async () => {
-      await webhookEvents.recordIfNew(event('evt_json'));
-      const [row] = await queryDatabase<{ payload: unknown }>(t.databaseUrl, "SELECT payload FROM webhook_events WHERE provider_event_id = 'evt_json'");
-      expect(row.payload).toEqual({ data: { object: { id: 'pi_1' } }, n: 1 });
-    });
-
-    it('does not store a second copy of a duplicate', async () => {
-      await webhookEvents.recordIfNew(event('evt_dup'));
-      await webhookEvents.recordIfNew(event('evt_dup'));
-
-      expect(await queryDatabase(t.databaseUrl, "SELECT 1 FROM webhook_events WHERE provider_event_id = 'evt_dup'")).toHaveLength(1);
-    });
-
-    it('remembers that an event was fully processed, so a redelivery can be skipped', async () => {
-      await webhookEvents.recordIfNew(event('evt_done'));
-      await webhookEvents.markProcessed('evt_done');
-
-      expect(await webhookEvents.recordIfNew(event('evt_done'))).toEqual({ alreadyProcessed: true });
-    });
-
-    it('keeps an unfinished event unprocessed, so the provider\'s retry gets handled', async () => {
-      await webhookEvents.recordIfNew(event('evt_unfinished'));
-      expect(await webhookEvents.recordIfNew(event('evt_unfinished'))).toEqual({ alreadyProcessed: false });
-    });
-
-    it('survives five simultaneous deliveries of the same event: one row, no errors', async () => {
-      const results = await Promise.allSettled(Array.from({ length: 5 }, () => webhookEvents.recordIfNew(event('evt_race'))));
-
-      expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
-      expect(await queryDatabase(t.databaseUrl, "SELECT 1 FROM webhook_events WHERE provider_event_id = 'evt_race'")).toHaveLength(1);
     });
   });
 });

@@ -1,7 +1,6 @@
 import { plainToInstance, Transform } from 'class-transformer';
 import { IsEnum, IsInt, IsUrl, Matches, Max, Min, MinLength, ValidateIf, validateSync } from 'class-validator';
-import { LogFormat } from '../common/logging/console-log-sink';
-import { LogLevelName } from '../common/logging/app-logger';
+import { LogFormat, LogLevelName } from '../common/logging/app-logger';
 import { InvalidMoneyError, Money } from '../payments/domain/money';
 
 const DEV_SECRET_PREFIX = 'dev-only';
@@ -24,8 +23,9 @@ export enum Environment {
 }
 
 export class EnvironmentVariables {
+  // Required, no default: defaulting to development would let a deploy that forgot it run with the mock provider.
   @IsEnum(Environment)
-  NODE_ENV: Environment = Environment.Development;
+  NODE_ENV: Environment;
 
   @IsEnum(LogLevelName)
   LOG_LEVEL: LogLevelName = LogLevelName.Log;
@@ -34,7 +34,7 @@ export class EnvironmentVariables {
   LOG_FORMAT: LogFormat = LogFormat.Text;
 
   // Decorators are evaluated bottom-up, and we report only the first failure per variable, so for every number the
-  // most fundamental rule (@IsInt) goes LAST: "abc" then reads "must be an integer", not "must not be less than 1".
+  // most fundamental rule (@IsInt) goes last: "abc" then reads "must be an integer", not "must not be less than 1".
   @ToNumber()
   @Max(65535)
   @Min(1)
@@ -61,8 +61,9 @@ export class EnvironmentVariables {
   @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
   PLAN_CURRENCY: string = 'USD';
 
+  // Required, no default, for the same reason as NODE_ENV.
   @IsEnum(PaymentProviderName)
-  PAYMENT_PROVIDER: PaymentProviderName = PaymentProviderName.Mock;
+  PAYMENT_PROVIDER: PaymentProviderName;
 
   @ValidateIf((env: EnvironmentVariables) => env.PAYMENT_PROVIDER === PaymentProviderName.Stripe)
   @Matches(/^sk_(test|live)_\S+$/, { message: 'STRIPE_SECRET_KEY must be a Stripe secret key (sk_test_... or sk_live_...)' })
@@ -85,6 +86,11 @@ export class EnvironmentVariables {
   @Min(0)
   @IsInt()
   RECONCILE_INTERVAL_MS: number = 60000;
+
+  @ToNumber()
+  @Min(1)
+  @IsInt()
+  RATE_LIMIT_PER_MINUTE: number = 20;
 }
 
 export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables {

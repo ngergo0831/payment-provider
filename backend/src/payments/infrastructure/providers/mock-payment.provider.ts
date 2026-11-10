@@ -1,14 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import {
-  InvalidWebhookSignatureException,
-  PaymentProviderFailureException,
-  PaymentProviderUnavailableException,
-} from '../../../common/errors/exceptions';
+import { InvalidWebhookSignatureException, PaymentProviderUnavailableException } from '../../../common/errors/exceptions';
 import {
   CreateProviderPaymentInput,
   PaymentProvider,
   ProviderEvent,
   ProviderPayment,
+  ProviderPaymentNotFoundError,
 } from '../../application/ports/payment-provider';
 import { Money } from '../../domain/money';
 import { isFinal, PaymentStatus } from '../../domain/payment-status';
@@ -75,7 +72,7 @@ export class MockPaymentProvider extends PaymentProvider {
 
     let body: Partial<ProviderEvent>;
     try {
-      body = JSON.parse(rawBody.toString('utf8'));
+      body = JSON.parse(rawBody.toString('utf8')) as Partial<ProviderEvent>;
     } catch {
       return null;
     }
@@ -86,7 +83,6 @@ export class MockPaymentProvider extends PaymentProvider {
       type: body.type ?? 'mock.payment.updated',
       providerRef: body.providerRef,
       paymentId: body.paymentId ?? null,
-      raw: body,
     };
   }
 
@@ -112,7 +108,6 @@ export class MockPaymentProvider extends PaymentProvider {
       type,
       providerRef: intent.providerRef,
       paymentId: intent.paymentId,
-      raw: { type, providerRef: intent.providerRef },
     };
   }
 
@@ -128,8 +123,8 @@ export class MockPaymentProvider extends PaymentProvider {
 
   private mustGet(providerRef: string): MockIntent {
     const intent = this.intentsByRef.get(providerRef);
-    // An unknown reference is OUR bug (or lost mock state after a restart), not an outage: no point retrying.
-    if (!intent) throw new PaymentProviderFailureException();
+    // The mock keeps its payments in memory, so after a restart every stored reference is unknown here.
+    if (!intent) throw new ProviderPaymentNotFoundError(providerRef);
     return intent;
   }
 

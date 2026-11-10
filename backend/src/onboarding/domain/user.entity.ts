@@ -2,10 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { Check, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, Unique } from 'typeorm';
 import { Company } from './company.entity';
 
-export enum UserRole {
-  ADMIN = 'ADMIN',
-}
-
 export interface NewAdminUser {
   /** Must already be normalised to lower case (the database rejects anything else). */
   email: string;
@@ -13,13 +9,13 @@ export interface NewAdminUser {
   companyId: string;
 }
 
+/** Every user is their company's admin: registration is the only way to create one. */
 @Entity('users')
 @Unique('uq_users_email', ['email'])
 @Index('ix_users_company_id', ['companyId'])
 // With lower-case enforced here, a plain UNIQUE on email is already case-insensitive:
 // "Ada@x.com" and "ada@x.com" cannot both exist, even under a race between two registrations.
 @Check('ck_users_email_lowercase', `"email" = lower("email")`)
-@Check('ck_users_role', `"role" IN ('ADMIN')`)
 export class User {
   @PrimaryColumn('uuid')
   id: string;
@@ -29,9 +25,6 @@ export class User {
 
   @Column({ name: 'full_name', type: 'varchar', length: 120 })
   fullName: string;
-
-  @Column({ type: 'varchar', length: 32 })
-  role: UserRole;
 
   @Column({ name: 'company_id', type: 'uuid' })
   companyId: string;
@@ -48,7 +41,6 @@ export class User {
     user.id = randomUUID();
     user.email = input.email;
     user.fullName = input.fullName;
-    user.role = UserRole.ADMIN;
     user.companyId = input.companyId;
     return user;
   }

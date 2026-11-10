@@ -1,13 +1,13 @@
 import { CompanyNotFoundException } from '../../common/errors/exceptions';
-import { InMemoryOnboarding } from '../../testing/in-memory-onboarding';
+import { InMemoryCompanyRepository } from '../../testing/in-memory-onboarding';
 import { Company, CompanyStatus } from '../domain/company.entity';
 import { ActivateCompanyUseCase } from './activate-company.use-case';
 
 function setup() {
-  const store = new InMemoryOnboarding();
+  const store = new InMemoryCompanyRepository();
   const company = Company.register({ name: 'Acme', country: 'HU', billingEmail: 'a@b.co' });
   store.companies.set(company.id, company);
-  return { company, useCase: new ActivateCompanyUseCase(store.companyRepository) };
+  return { company, useCase: new ActivateCompanyUseCase(store) };
 }
 
 describe('ActivateCompanyUseCase', () => {

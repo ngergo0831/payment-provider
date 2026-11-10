@@ -10,6 +10,7 @@ import {
   PaymentProvider,
   ProviderEvent,
   ProviderPayment,
+  ProviderPaymentNotFoundError,
 } from '../../application/ports/payment-provider';
 import { HANDLED_EVENT_TYPES, toProviderPayment } from './stripe-mappers';
 
@@ -48,18 +49,18 @@ export class StripePaymentProvider extends PaymentProvider {
           // Echoed back on every event, so a webhook can find our payment even if we never stored Stripe's id.
           metadata: { paymentId: input.paymentId, companyId: input.companyId },
         },
-        // Contract rule 1: the same payment id is the same idempotency key, so a retry returns the SAME intent.
+        // Contract rule 1: the same payment id is the same idempotency key, so a retry returns the same intent.
         // (Stripe remembers a key for 24 hours; our flow only ever retries within minutes.)
         { idempotencyKey: `payment-create-${input.paymentId}` },
       ),
     );
-    // An idempotent replay returns the response of the FIRST request, i.e. a stale snapshot. The contract promises the
+    // An idempotent replay returns the response of the first request, i.e. a stale snapshot. The contract promises the
     // CURRENT state (the provider is the source of truth), so read it back. One extra call, once per payment.
     return this.retrievePayment(created.id);
   }
 
   async retrievePayment(providerRef: string): Promise<ProviderPayment> {
-    return toProviderPayment(await this.call(() => this.client.paymentIntents.retrieve(providerRef)));
+    return toProviderPayment(await this.call(() => this.client.paymentIntents.retrieve(providerRef), providerRef));
   }
 
   parseWebhook(rawBody: Buffer, signature: string | undefined): ProviderEvent | null {
@@ -67,7 +68,7 @@ export class StripePaymentProvider extends PaymentProvider {
 
     let event: Stripe.Event;
     try {
-      // Checks the signature over the EXACT bytes and rejects timestamps older than 5 minutes (replay protection).
+      // Checks the signature over the exact bytes and rejects timestamps older than 5 minutes (replay protection).
       event = this.client.webhooks.constructEvent(rawBody, signature, this.settings.webhookSecret);
     } catch {
       throw new InvalidWebhookSignatureException();
@@ -81,16 +82,17 @@ export class StripePaymentProvider extends PaymentProvider {
       type: event.type,
       providerRef: intent.id,
       paymentId: intent.metadata?.paymentId ?? null,
-      // Stored in the inbox for audit. Deliberately NOT the whole event: it contains the intent's client secret,
-      // which would then sit in our database. Only what is needed to understand what happened.
-      raw: { id: event.id, type: event.type, created: event.created, paymentIntent: intent.id },
     };
   }
 
-  private async call<T>(operation: () => Promise<T>): Promise<T> {
+  /** `lookedUp`: the reference being read, so that Stripe's "no such payment intent" is reported as not found. */
+  private async call<T>(operation: () => Promise<T>, lookedUp?: string): Promise<T> {
     try {
       return await operation();
     } catch (error) {
+      if (lookedUp && error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
+        throw new ProviderPaymentNotFoundError(lookedUp);
+      }
       const unreachable =
         error instanceof Stripe.errors.StripeConnectionError ||
         error instanceof Stripe.errors.StripeAPIError ||

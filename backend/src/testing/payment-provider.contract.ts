@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import {
-  InvalidWebhookSignatureException,
-  PaymentProviderFailureException,
-  PaymentProviderUnavailableException,
-} from '../common/errors/exceptions';
-import { PaymentProvider } from '../payments/application/ports/payment-provider';
+import { InvalidWebhookSignatureException, PaymentProviderUnavailableException } from '../common/errors/exceptions';
+import { PaymentProvider, ProviderPaymentNotFoundError } from '../payments/application/ports/payment-provider';
 import { Money } from '../payments/domain/money';
 import { PaymentStatus } from '../payments/domain/payment-status';
 
@@ -117,8 +113,8 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(await provider.retrievePayment(created.providerRef)).toEqual(created);
       });
 
-      it('rule 3: an unknown reference is a FAILURE of ours (PaymentProviderFailureException), not an outage', async () => {
-        await expect(provider.retrievePayment('does_not_exist_12345')).rejects.toBeInstanceOf(PaymentProviderFailureException);
+      it('rule 3: an unknown reference is reported as not found (ProviderPaymentNotFoundError), not as an outage', async () => {
+        await expect(provider.retrievePayment('does_not_exist_12345')).rejects.toBeInstanceOf(ProviderPaymentNotFoundError);
       });
     });
 
@@ -134,16 +130,20 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect(state.failureCode).toBeNull();
       });
 
-      itIf(canDrive('decline'), 'FAILED: reports a failure reason, and the secret stays so the customer can retry with another card', async () => {
-        const { providerRef } = await provider.createPayment(input());
-        await subject.drive!(providerRef, 'decline');
+      itIf(
+        canDrive('decline'),
+        'FAILED: reports a failure reason, and the secret stays so the customer can retry with another card',
+        async () => {
+          const { providerRef } = await provider.createPayment(input());
+          await subject.drive!(providerRef, 'decline');
 
-        const state = await provider.retrievePayment(providerRef);
+          const state = await provider.retrievePayment(providerRef);
 
-        expect(state.status).toBe(PaymentStatus.FAILED);
-        expect(state.failureCode).toEqual(expect.any(String));
-        expect(state.clientSecret).toEqual(expect.any(String));
-      });
+          expect(state.status).toBe(PaymentStatus.FAILED);
+          expect(state.failureCode).toEqual(expect.any(String));
+          expect(state.clientSecret).toEqual(expect.any(String));
+        },
+      );
 
       itIf(canDrive('decline', 'succeed'), 'a failed payment can still succeed on retry (a declined card is not the end)', async () => {
         const { providerRef } = await provider.createPayment(input());
@@ -185,16 +185,20 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         expect((await provider.retrievePayment(providerRef)).status).toBe(PaymentStatus.SUCCEEDED);
       });
 
-      itIf(canDrive('succeed'), 'creating again after the payment moved on still returns the CURRENT state (idempotent create is not a reset)', async () => {
-        const request = input();
-        const created = await provider.createPayment(request);
-        await subject.drive!(created.providerRef, 'succeed');
+      itIf(
+        canDrive('succeed'),
+        'creating again after the payment moved on still returns the CURRENT state (idempotent create is not a reset)',
+        async () => {
+          const request = input();
+          const created = await provider.createPayment(request);
+          await subject.drive!(created.providerRef, 'succeed');
 
-        const again = await provider.createPayment(request);
+          const again = await provider.createPayment(request);
 
-        expect(again.providerRef).toBe(created.providerRef);
-        expect(again.status).toBe(PaymentStatus.SUCCEEDED);
-      });
+          expect(again.providerRef).toBe(created.providerRef);
+          expect(again.status).toBe(PaymentStatus.SUCCEEDED);
+        },
+      );
     });
 
     describe('outages (rule 3: unreachable means PaymentProviderUnavailableException, i.e. retry later)', () => {
@@ -212,16 +216,20 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
         await expect(provider.retrievePayment(providerRef)).rejects.toBeInstanceOf(PaymentProviderUnavailableException);
       });
 
-      itIf(probe.outage, 'a retry after an outage creates exactly ONE provider payment (no duplicate from the failed attempt)', async () => {
-        const request = input();
-        subject.outage!.start();
-        await expect(provider.createPayment(request)).rejects.toBeInstanceOf(PaymentProviderUnavailableException);
-        subject.outage!.stop();
+      itIf(
+        probe.outage,
+        'a retry after an outage creates exactly ONE provider payment (no duplicate from the failed attempt)',
+        async () => {
+          const request = input();
+          subject.outage!.start();
+          await expect(provider.createPayment(request)).rejects.toBeInstanceOf(PaymentProviderUnavailableException);
+          subject.outage!.stop();
 
-        const first = await provider.createPayment(request);
-        const second = await provider.createPayment(request);
-        expect(second.providerRef).toBe(first.providerRef);
-      });
+          const first = await provider.createPayment(request);
+          const second = await provider.createPayment(request);
+          expect(second.providerRef).toBe(first.providerRef);
+        },
+      );
     });
 
     describe('parseWebhook (rule 5: authentic webhooks only)', () => {

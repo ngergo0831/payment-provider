@@ -1,7 +1,6 @@
 import { jest } from '@jest/globals';
 import { QueryFailedError } from 'typeorm';
-import { LogRecord, LogSink } from '../src/common/logging/log-sink';
-import { AccountRepository, CompanyRepository } from '../src/onboarding/application/ports';
+import { CompanyRepository } from '../src/onboarding/application/ports';
 import { Company } from '../src/onboarding/domain/company.entity';
 import { User } from '../src/onboarding/domain/user.entity';
 import { OutboxDispatcher } from '../src/payments/application/outbox-dispatcher';
@@ -29,15 +28,8 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
   const asText = (args: unknown[]) =>
     args.map((arg) => (typeof arg === 'string' ? arg : arg instanceof Error ? arg.stack : JSON.stringify(arg))).join(' ');
 
-  const applicationLogs: string[] = [];
-  const recorder = new (class extends LogSink {
-    write(record: LogRecord): void {
-      applicationLogs.push(JSON.stringify(record));
-    }
-  })();
-
   beforeAll(async () => {
-    t = await createTestApp({ logSink: recorder, env: { LOG_LEVEL: 'debug' } });
+    t = await createTestApp({ env: { LOG_LEVEL: 'debug' } });
   });
   afterAll(async () => {
     await t.close();
@@ -45,7 +37,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
 
   async function captureLogs(scenario: () => Promise<void>): Promise<string> {
     captured = [];
-    applicationLogs.length = 0;
     // `console.error('query failed:', query)` has several arguments: keep ALL of them, not only the first.
     const record = (...args: unknown[]) => void captured.push(asText(args));
     const spies = [
@@ -53,13 +44,15 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       jest.spyOn(console, 'info').mockImplementation(record),
       jest.spyOn(console, 'warn').mockImplementation(record),
       jest.spyOn(console, 'error').mockImplementation(record),
+      jest.spyOn(process.stdout, 'write').mockImplementation((chunk) => record(String(chunk)) ?? true),
+      jest.spyOn(process.stderr, 'write').mockImplementation((chunk) => record(String(chunk)) ?? true),
     ];
     try {
       await scenario();
     } finally {
       spies.forEach((spy) => spy.mockRestore());
     }
-    return [...applicationLogs, ...captured].join('\n');
+    return captured.join('\n');
   }
 
   it('across registration, a duplicate, payment, webhooks, outages and bad input', async () => {
@@ -77,9 +70,12 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
 
       const company = Company.register({ name: COMPANY_NAME, country: 'HU', taxId: TAX_ID, billingEmail: EMAIL });
       const admin = User.createAdmin({ email: EMAIL, fullName: FULL_NAME, companyId: company.id });
-      await expect(t.app.get(AccountRepository).createCompanyWithAdmin(company, admin)).rejects.toThrow();
+      await expect(t.app.get(CompanyRepository).createWithAdmin(company, admin)).rejects.toThrow();
 
-      await t.http.post('/auth/register').send({ email: 'not-an-email', fullName: FULL_NAME, company: { name: COMPANY_NAME, country: 'ZZ' } }).expect(422);
+      await t.http
+        .post('/auth/register')
+        .send({ email: 'not-an-email', fullName: FULL_NAME, company: { name: COMPANY_NAME, country: 'ZZ' } })
+        .expect(422);
       await t.http.get('/onboarding/status').set('Authorization', `Bearer ${token}tampered`).expect(401);
       await t.http.get('/nope').expect(404);
       // A body that is not JSON: the parser's error quotes the start of it, so the log must not repeat that text.
@@ -95,16 +91,26 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
       //     query and its parameters (the customer's email); they must not end up in the log text.
       const failing = jest
         .spyOn(t.app.get(CompanyRepository), 'findById')
-        .mockRejectedValueOnce(new QueryFailedError('SELECT * FROM companies WHERE billing_email = $1', [EMAIL], new Error('connection reset')));
+        .mockRejectedValueOnce(
+          new QueryFailedError('SELECT * FROM companies WHERE billing_email = $1', [EMAIL], new Error('connection reset')),
+        );
       const crashed = await t.http.get('/onboarding/status').set(auth).expect(500);
       failing.mockRestore();
       expect(crashed.body.code).toBe('INTERNAL_ERROR');
 
-      await t.http.post('/webhooks/payments').set('Content-Type', 'application/json').set('x-mock-signature', 'forged').send('{"id":"evt_x"}').expect(400);
+      await t.http
+        .post('/webhooks/payments')
+        .set('Content-Type', 'application/json')
+        .set('x-mock-signature', 'forged')
+        .send('{"id":"evt_x"}')
+        .expect(400);
       provider.setOutage(true);
       await t.http.post('/payments').set(auth).expect(503);
       provider.setOutage(false);
-      await t.http.post(`/dev/mock-payments/${started.body.payment.providerRef}/simulate`).send({ outcome: MockOutcome.SUCCEED }).expect(200);
+      await t.http
+        .post(`/dev/mock-payments/${started.body.payment.providerRef}/simulate`)
+        .send({ outcome: MockOutcome.SUCCEED })
+        .expect(200);
       await t.app.get(OutboxDispatcher).dispatchDue();
 
       // 6. A stale report about a payment that already succeeded: the synchronizer rejects it and logs a warning, and the

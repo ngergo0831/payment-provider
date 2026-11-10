@@ -12,7 +12,7 @@ const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{1,128}$/;
  * can be traced through the logs. A caller-supplied id (e.g. from a gateway) is reused when it is safe;
  * anything else is replaced, because an attacker-chosen value could forge or inject log lines.
  *
- * Plain Express middleware, registered with `app.use()` BEFORE the body parser. Nest's own
+ * Plain Express middleware, registered with `app.use()` before the body parser. Nest's own
  * middleware runs after body parsing, so a malformed-JSON error would otherwise have no request id.
  */
 export function assignRequestId(req: Request, res: Response, next: NextFunction): void {

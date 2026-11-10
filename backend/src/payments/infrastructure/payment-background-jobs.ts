@@ -29,7 +29,7 @@ export class PaymentBackgroundJobs implements OnApplicationBootstrap, OnModuleDe
   }
 
   /**
-   * Stops the timers and waits for runs in progress. Module destruction is the FIRST shutdown phase, so this finishes
+   * Stops the timers and waits for runs in progress. Module destruction is the first shutdown phase, so this finishes
    * before the database connection is closed (TypeORM does that in the last phase, onApplicationShutdown).
    */
   async onModuleDestroy(): Promise<void> {

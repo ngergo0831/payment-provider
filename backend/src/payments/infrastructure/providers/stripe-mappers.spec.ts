@@ -36,7 +36,12 @@ describe('mapIntentStatus (Stripe status -> ours)', () => {
 describe('toProviderPayment', () => {
   it('builds our neutral record: reference, status, amount, secret', () => {
     const payment = toProviderPayment(intent());
-    expect(payment).toMatchObject({ providerRef: 'pi_123', status: PaymentStatus.CREATED, clientSecret: 'pi_123_secret_abc', failureCode: null });
+    expect(payment).toMatchObject({
+      providerRef: 'pi_123',
+      status: PaymentStatus.CREATED,
+      clientSecret: 'pi_123_secret_abc',
+      failureCode: null,
+    });
     expect(payment.amount.toString()).toBe('49.00 USD');
   });
 

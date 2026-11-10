@@ -1,5 +1,4 @@
-import { LogFormat } from '../common/logging/console-log-sink';
-import { LogLevelName } from '../common/logging/app-logger';
+import { LogFormat, LogLevelName } from '../common/logging/app-logger';
 import { Environment, PaymentProviderName, validateEnv } from './env.validation';
 
 export interface AppConfig {
@@ -7,6 +6,8 @@ export interface AppConfig {
   logLevel: LogLevelName;
   logFormat: LogFormat;
   port: number;
+  /** Per client IP, for the endpoints that create something (registration, starting a payment). */
+  rateLimitPerMinute: number;
   database: {
     /** Contains the password: pass it to the driver, never log it. */
     url: string;
@@ -32,6 +33,7 @@ export const configuration = (): AppConfig => {
     logLevel: env.LOG_LEVEL,
     logFormat: env.LOG_FORMAT,
     port: env.PORT,
+    rateLimitPerMinute: env.RATE_LIMIT_PER_MINUTE,
     database: { url: env.DATABASE_URL },
     jwt: { secret: env.JWT_SECRET, expiresIn: env.JWT_EXPIRES_IN },
     payments: {

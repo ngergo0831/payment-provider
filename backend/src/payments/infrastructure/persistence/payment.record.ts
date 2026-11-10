@@ -1,13 +1,15 @@
 import { Check, Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
-import { OPEN_STATUSES, PaymentStatus } from '../../domain/payment-status';
+import { LIVE_STATUSES, PaymentStatus } from '../../domain/payment-status';
 
 const quoted = (statuses: readonly PaymentStatus[]) => statuses.map((status) => `'${status}'`).join(', ');
 
+export const UNIQUE_ONE_LIVE_PER_COMPANY = 'uq_payments_one_live_per_company';
+
 @Entity('payments')
 @Index('uq_payments_provider_ref', ['providerRef'], { unique: true })
-@Index('uq_payments_one_open_per_company', ['companyId'], {
+@Index(UNIQUE_ONE_LIVE_PER_COMPANY, ['companyId'], {
   unique: true,
-  where: `"status" IN (${quoted(OPEN_STATUSES)})`,
+  where: `"status" IN (${quoted(LIVE_STATUSES)})`,
 })
 @Check('ck_payments_status', `"status" IN (${quoted(Object.values(PaymentStatus))})`)
 @Check('ck_payments_amount_positive', `"amount_minor" > 0`)

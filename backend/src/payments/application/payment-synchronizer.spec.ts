@@ -2,7 +2,11 @@ import { InMemoryPaymentRepository } from '../../testing/in-memory-payments';
 import { Money } from '../domain/money';
 import { Payment } from '../domain/payment';
 import { PaymentStatus } from '../domain/payment-status';
-import { PaymentSynchronizer, ProviderAmountMismatchError } from './payment-synchronizer';
+import { jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
+import { PaymentNotFoundException } from '../../common/errors/exceptions';
+import { PaymentRecordConflictException } from './payment-record-conflict.exception';
+import { PaymentSynchronizer } from './payment-synchronizer';
 import { ProviderPayment } from './ports/payment-provider';
 import { PaymentConcurrentModificationError } from './ports/repositories';
 
@@ -143,11 +147,16 @@ describe('PaymentSynchronizer', () => {
   });
 
   describe('safety checks', () => {
+    beforeEach(() => {
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    });
+    afterEach(() => jest.restoreAllMocks());
+
     it('REFUSES to proceed when the provider reports a different amount than we asked for', async () => {
       const { synchronizer, payment, repo } = await setup();
 
       await expect(synchronizer.apply(payment.id, remote({ amount: Money.of(100, 'USD') }))).rejects.toBeInstanceOf(
-        ProviderAmountMismatchError,
+        PaymentRecordConflictException,
       );
       expect((await repo.findById(payment.id))?.providerRef).toBeNull();
     });
@@ -155,19 +164,21 @@ describe('PaymentSynchronizer', () => {
     it('refuses a different currency even with the same number', async () => {
       const { synchronizer, payment } = await setup();
       await expect(synchronizer.apply(payment.id, remote({ amount: Money.of(4900, 'EUR') }))).rejects.toBeInstanceOf(
-        ProviderAmountMismatchError,
+        PaymentRecordConflictException,
       );
     });
 
     it('refuses to link a payment to a second, different provider payment', async () => {
       const { synchronizer, payment } = await setup();
       await synchronizer.apply(payment.id, remote({ providerRef: 'pi_1' }));
-      await expect(synchronizer.apply(payment.id, remote({ providerRef: 'pi_OTHER' }))).rejects.toThrow(/already linked/);
+      await expect(synchronizer.apply(payment.id, remote({ providerRef: 'pi_OTHER' }))).rejects.toMatchObject({
+        reason: expect.stringMatching(/already linked to pi_1/),
+      });
     });
 
     it('fails clearly when the payment no longer exists', async () => {
       const { synchronizer } = await setup();
-      await expect(synchronizer.apply('00000000-0000-4000-8000-000000000000', remote())).rejects.toThrow(/disappeared/);
+      await expect(synchronizer.apply('00000000-0000-4000-8000-000000000000', remote())).rejects.toBeInstanceOf(PaymentNotFoundException);
     });
   });
 });

@@ -1,32 +1,24 @@
 import { EmailAlreadyRegisteredException } from '../common/errors/exceptions';
-import { AccountRepository, CompanyRepository, UserRepository } from '../onboarding/application/ports';
+import { CompanyRepository } from '../onboarding/application/ports';
 import { Company } from '../onboarding/domain/company.entity';
 import { User } from '../onboarding/domain/user.entity';
 
-export class InMemoryOnboarding {
+export class InMemoryCompanyRepository extends CompanyRepository {
   readonly companies = new Map<string, Company>();
   readonly users = new Map<string, User>();
 
-  rejectNextCreateAsDuplicate = false;
+  async findById(id: string): Promise<Company | null> {
+    return this.companies.get(id) ?? null;
+  }
 
-  readonly companyRepository: CompanyRepository = {
-    findById: async (id) => this.companies.get(id) ?? null,
-    save: async (company) => void this.companies.set(company.id, company),
-  };
+  async save(company: Company): Promise<void> {
+    this.companies.set(company.id, company);
+  }
 
-  readonly userRepository: UserRepository = {
-    findByEmail: async (email) => [...this.users.values()].find((user) => user.email === email) ?? null,
-  };
-
-  readonly accountRepository: AccountRepository = {
-    createCompanyWithAdmin: async (company, admin) => {
-      const taken = [...this.users.values()].some((user) => user.email === admin.email);
-      if (taken || this.rejectNextCreateAsDuplicate) {
-        this.rejectNextCreateAsDuplicate = false;
-        throw new EmailAlreadyRegisteredException();
-      }
-      this.companies.set(company.id, company);
-      this.users.set(admin.id, admin);
-    },
-  };
+  async createWithAdmin(company: Company, admin: User): Promise<void> {
+    const taken = [...this.users.values()].some((user) => user.email === admin.email);
+    if (taken) throw new EmailAlreadyRegisteredException();
+    this.companies.set(company.id, company);
+    this.users.set(admin.id, admin);
+  }
 }

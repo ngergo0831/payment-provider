@@ -11,14 +11,17 @@ class PriceDto {
 }
 
 class CheckoutConfigDto {
-  @ApiProperty({ enum: PaymentProviderName, description: '`stripe`: show Stripe\'s card form. `mock`: no real payment form; use the dev simulator.' })
+  @ApiProperty({
+    enum: PaymentProviderName,
+    description: "`stripe`: show Stripe's card form. `mock`: no real payment form; use the dev simulator.",
+  })
   provider: PaymentProviderName;
 
   @ApiProperty({
     type: String,
     nullable: true,
     example: 'pk_test_...',
-    description: 'Stripe\'s PUBLISHABLE key, which is designed to be public. Null for the mock. The secret key is never exposed.',
+    description: "Stripe's PUBLISHABLE key, which is designed to be public. Null for the mock. The secret key is never exposed.",
   })
   publishableKey: string | null;
 

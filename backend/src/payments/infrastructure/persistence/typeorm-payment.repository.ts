@@ -3,19 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { isUniqueViolation } from '../../../common/database/pg-errors';
 import {
-  OpenPaymentAlreadyExistsError,
+  LivePaymentAlreadyExistsError,
   PaymentConcurrentModificationError,
   PaymentRepository,
+  ReconciliationQuery,
 } from '../../application/ports/repositories';
 import { OutboxMessage } from '../../application/outbox';
 import { Payment } from '../../domain/payment';
-import { OPEN_STATUSES } from '../../domain/payment-status';
+import { LIVE_STATUSES, OPEN_STATUSES } from '../../domain/payment-status';
 import { OutboxRecord } from './outbox.record';
 import { toDomain, toRecord } from './payment.mapper';
-import { PaymentRecord } from './payment.record';
-
-/** Must match the index name in the migration and on PaymentRecord. */
-const UNIQUE_ONE_OPEN_PER_COMPANY = 'uq_payments_one_open_per_company';
+import { PaymentRecord, UNIQUE_ONE_LIVE_PER_COMPANY } from './payment.record';
 
 @Injectable()
 export class TypeOrmPaymentRepository extends PaymentRepository {
@@ -31,17 +29,22 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     return this.toDomainOrNull(await this.records.findOneBy({ providerRef }));
   }
 
-  async findOpenByCompany(companyId: string): Promise<Payment | null> {
-    return this.toDomainOrNull(await this.records.findOneBy({ companyId, status: In([...OPEN_STATUSES]) }));
+  async findLiveByCompany(companyId: string): Promise<Payment | null> {
+    return this.toDomainOrNull(await this.records.findOneBy({ companyId, status: In([...LIVE_STATUSES]) }));
   }
 
-  async findDueForReconciliation(query: { notSyncedSince: Date; createdAfter: Date; limit: number }): Promise<Payment[]> {
+  async findDueForReconciliation(query: ReconciliationQuery): Promise<Payment[]> {
     const rows = await this.records
       .createQueryBuilder('payment')
       .where('payment.status IN (:...open)', { open: [...OPEN_STATUSES] })
+      .andWhere('payment.provider = :provider', { provider: query.provider })
       .andWhere('payment.provider_ref IS NOT NULL')
       .andWhere('payment.created_at > :createdAfter', { createdAfter: query.createdAfter })
-      .andWhere('COALESCE(payment.last_synced_at, payment.created_at) < :notSyncedSince', { notSyncedSince: query.notSyncedSince })
+      .andWhere(
+        `COALESCE(payment.last_synced_at, payment.created_at) < CAST(:now AS timestamptz) - GREATEST(
+           :minQuietMs * INTERVAL '1 millisecond', (CAST(:now AS timestamptz) - payment.created_at) * :quietFractionOfAge)`,
+        { now: query.now, minQuietMs: query.minQuietMs, quietFractionOfAge: query.quietFractionOfAge },
+      )
       .orderBy('COALESCE(payment.last_synced_at, payment.created_at)', 'ASC')
       .limit(query.limit)
       .getMany();
@@ -52,7 +55,7 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     try {
       await this.records.insert(toRecord(payment));
     } catch (error) {
-      if (isUniqueViolation(error, UNIQUE_ONE_OPEN_PER_COMPANY)) throw new OpenPaymentAlreadyExistsError();
+      if (isUniqueViolation(error, UNIQUE_ONE_LIVE_PER_COMPANY)) throw new LivePaymentAlreadyExistsError();
       throw error;
     }
   }
@@ -98,6 +101,10 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     });
 
     return Payment.restore({ ...payment.toSnapshot(), version: payment.version + 1 });
+  }
+
+  async recordSynced(paymentId: string, at: Date): Promise<void> {
+    await this.records.update({ id: paymentId }, { lastSyncedAt: at });
   }
 
   private toDomainOrNull(record: PaymentRecord | null): Payment | null {
