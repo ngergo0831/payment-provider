@@ -12,15 +12,6 @@ export interface PaymentCheckout {
   clientSecret: string | null;
 }
 
-/**
- * "Start or resume" the company's payment. Safe to call again and again (double click, page reload, a retry after a
- * decline, a retry after the provider was down): it always converges on the company's one live payment.
- *
- * The order of operations is deliberate:
- *   1. save our intent first (CREATED, not yet known to the provider)  -> a crash here loses nothing
- *   2. call the provider, idempotent on our payment id                  -> a timeout here is safe to retry
- *   3. record the provider's reference and state
- */
 @Injectable()
 export class StartPaymentUseCase {
   private readonly logger = new Logger(StartPaymentUseCase.name);
@@ -59,7 +50,6 @@ export class StartPaymentUseCase {
     return { payment: saved, clientSecret: saved.isFinal() ? null : remote.clientSecret };
   }
 
-  /** The provider's record of the payment, or null if the configured provider cannot know it. */
   private async fetchRemote(payment: Payment): Promise<ProviderPayment | null> {
     if (payment.provider !== this.provider.name) return null;
     if (!payment.providerRef) {

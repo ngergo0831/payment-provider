@@ -12,7 +12,6 @@ export class PaymentInvariantError extends Error {
 export enum TransitionOutcome {
   APPLIED = 'APPLIED',
   UNCHANGED = 'UNCHANGED',
-  /** An illegal move, i.e. stale or out-of-order information. The payment was left untouched. */
   REJECTED = 'REJECTED',
 }
 
@@ -24,7 +23,6 @@ export interface PaymentSnapshot {
   amount: Money;
   status: PaymentStatus;
   failureCode: string | null;
-  /** The stored revision, for optimistic locking. Owned by persistence: the domain never changes it. */
   version: number;
   lastSyncedAt: Date | null;
   createdAt: Date;
@@ -109,11 +107,6 @@ export class Payment {
     return isFinal(this.state.status);
   }
 
-  /**
-   * Links this payment to the provider's own record of it. Idempotent for the same reference (a replayed
-   * report is harmless), but a payment can only ever belong to one provider payment: a different reference
-   * would mean we are about to mix up two charges.
-   */
   attachProviderRef(providerRef: string, now: Date = new Date()): void {
     if (this.state.providerRef === providerRef) return;
     if (this.state.providerRef !== null) {
@@ -122,12 +115,6 @@ export class Payment {
     this.state = { ...this.state, providerRef, updatedAt: now };
   }
 
-  /**
-   * The only way the status changes. Used for every source of truth about the payment
-   * (webhook, reconciliation, "resume checkout"), so they all obey the same rules.
-   *
-   * `failureCode` is meaningful only for FAILED; it is cleared on any other status.
-   */
   applyStatus(next: PaymentStatus, failureCode: string | null = null, now: Date = new Date()): TransitionOutcome {
     if (next === this.state.status) {
       if (next === PaymentStatus.FAILED && failureCode && failureCode !== this.state.failureCode) {

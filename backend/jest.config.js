@@ -7,8 +7,6 @@
 const base = {
   testEnvironment: 'node',
   moduleFileExtensions: ['js', 'json', 'ts'],
-  // Decorators (class-validator, Nest DI) need this polyfill before any decorated class loads.
-  // In the running app Nest imports it first; a test that imports a decorated file alone must do it itself.
   setupFiles: ['reflect-metadata'],
   extensionsToTreatAsEsm: ['.ts'],
   transform: {

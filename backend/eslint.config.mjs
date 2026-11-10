@@ -12,13 +12,10 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      // Fakes and adapters implement async ports without awaiting anything; `async` still turns a throw into a rejection.
       '@typescript-eslint/require-await': 'off',
     },
   },
   {
-    // Application and payments-domain code depend on ports (abstract classes); only infrastructure knows the database
-    // and token libraries. onboarding/domain is deliberately not listed: Company and User are decorated entities.
     files: ['src/**/application/**/*.ts', 'src/payments/domain/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -28,7 +25,6 @@ export default tseslint.config(
     },
   },
   {
-    // HTTP response bodies (supertest) and Jest matchers are untyped by nature.
     files: ['test/**/*.ts', 'src/**/*.spec.ts', 'src/testing/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-argument': 'off',

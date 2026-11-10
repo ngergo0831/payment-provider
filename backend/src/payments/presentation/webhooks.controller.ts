@@ -15,13 +15,6 @@ class WebhookAcknowledgement {
   })
   result: EventHandlingResult | 'IGNORED';
 }
-
-/**
- * Where the payment provider tells us that something happened. Public by necessity (a provider cannot send our JWT);
- * authenticity comes from the SIGNATURE, verified over the exact bytes received.
- *
- * Any non-2xx answer makes the provider retry, which is exactly what we want after a transient failure.
- */
 @ApiTags('webhooks')
 @Controller('webhooks')
 export class WebhooksController {

@@ -6,12 +6,10 @@
     "target": "ES2022",
     "lib": ["ES2022"],
 
-    // Nest's dependency injection reads constructor types at runtime through decorator metadata.
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
     "strict": true,
-    // DTO/entity classes declare fields that are assigned later (by validation / the ORM).
     "strictPropertyInitialization": false,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,

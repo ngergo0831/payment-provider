@@ -79,7 +79,6 @@ export class StripePaymentProvider extends PaymentProvider {
     };
   }
 
-  /** `lookedUp`: the reference being read, so that Stripe's "no such payment intent" is reported as not found. */
   private async call<T>(operation: () => Promise<T>, lookedUp?: string): Promise<T> {
     try {
       return await operation();

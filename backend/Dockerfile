@@ -16,7 +16,6 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 
-# Not root: if the app were ever compromised, it could not change the container's files.
 USER node
 EXPOSE 3000
 

@@ -6,10 +6,6 @@ import { PaymentStatus } from '../payments/domain/payment-status';
 
 export type RemoteOutcome = 'succeed' | 'decline' | 'require_action' | 'processing' | 'cancel';
 
-/**
- * A provider under test, plus the hooks the suite needs to drive it. Hooks a provider cannot offer are OPTIONAL:
- * the tests that depend on them are skipped for that provider (a real Stripe cannot be "switched off").
- */
 export interface ContractSubject {
   provider: PaymentProvider;
   outage?: { start(): void; stop(): void };
@@ -28,11 +24,6 @@ const input = (overrides: Partial<{ paymentId: string; amount: Money }> = {}) =>
   ...overrides,
 });
 
-/**
- * THE CONTRACT TEST SUITE for `PaymentProvider` (see the contract in payment-provider.ts).
- * Call it once per adapter:  describePaymentProviderContract('MockPaymentProvider', () => ({ provider: ... }))
- * `makeSubject` is called fresh for every test, so tests never share state.
- */
 export function describePaymentProviderContract(name: string, makeSubject: () => ContractSubject): void {
   describe(`PaymentProvider contract: ${name}`, () => {
     const probe = makeSubject();

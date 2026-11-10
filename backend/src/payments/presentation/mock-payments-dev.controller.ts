@@ -27,10 +27,6 @@ class OutageDto {
   enabled: boolean;
 }
 
-/**
- * Plays "the customer" and "the provider's bad day" so every scenario can be tried from Swagger without a Stripe account.
- * Only registered when the mock provider is selected (see AppModule), and the mock is refused in production.
- */
 @ApiTags('dev (mock provider only)')
 @Controller('dev/mock-payments')
 export class MockPaymentsDevController {

@@ -1,5 +1,3 @@
-# Tells editors (VS Code with the EditorConfig extension, JetBrains, ...) how to write files,
-# so new files are created with LF and 2-space indentation from the start.
 root = true
 
 [*]
@@ -11,5 +9,4 @@ indent_style = space
 indent_size = 2
 
 [*.md]
-# trailing double-space is meaningful (line break) in Markdown
 trim_trailing_whitespace = false

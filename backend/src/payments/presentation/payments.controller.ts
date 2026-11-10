@@ -29,10 +29,6 @@ export class PaymentsController {
     private readonly getPayment: GetPaymentUseCase,
   ) {}
 
-  /**
-   * 200, not 201, even on first use: the same call "starts or resumes", and a client should not need to know which.
-   * The company always comes from the token: a caller cannot start a payment for someone else.
-   */
   @Post()
   @UseGuards(ThrottlerGuard)
   @HttpCode(HttpStatus.OK)

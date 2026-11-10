@@ -8,17 +8,8 @@ import { PaymentRepository } from '../ports/repositories';
 export enum EventHandlingResult {
   PROCESSED = 'PROCESSED',
   UNKNOWN_PAYMENT = 'UNKNOWN_PAYMENT',
-  /** Our record and the provider's disagree (e.g. a different amount); left for manual review. */
   CONFLICT = 'CONFLICT',
 }
-
-/**
- * Handles one authenticated notification from the provider.
- *
- * The event is only a trigger: its content is not trusted. We ask the provider for the payment's current state and
- * apply that, so a late, duplicated or out-of-order notification cannot mislead us, and handling one twice is harmless.
- * Any failure propagates, so the provider retries the delivery.
- */
 @Injectable()
 export class HandleProviderEventUseCase {
   private readonly logger = new Logger(HandleProviderEventUseCase.name);

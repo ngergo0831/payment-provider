@@ -28,7 +28,6 @@ class CheckoutConfigDto {
   @ApiProperty({ type: PriceDto }) price: PriceDto;
 }
 
-/** What the browser needs to build the payment screen. Public, and deliberately limited to values that are safe to publish. */
 @ApiTags('payments')
 @Controller('checkout-config')
 export class CheckoutConfigController {

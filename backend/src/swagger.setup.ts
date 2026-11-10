@@ -13,7 +13,6 @@ const DEFAULT_ERROR_RESPONSE = {
   content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
 };
 
-/** A path item also holds non-operation fields (`parameters`, `summary`...). */
 function isOperation(value: unknown): value is OperationObject {
   return typeof value === 'object' && value !== null && 'responses' in value;
 }
