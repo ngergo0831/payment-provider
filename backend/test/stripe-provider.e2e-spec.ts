@@ -11,8 +11,6 @@ const STRIPE_ENV = {
 };
 const signer = new Stripe('sk_test_not_a_real_key');
 
-// Its own file: the app's module graph (e.g. whether the mock's dev endpoints exist) is fixed by the first app a test
-// file boots, so one file cannot boot both providers.
 describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
   describe('PAYMENT_PROVIDER=stripe', () => {
     let t: TestApp;

@@ -34,14 +34,11 @@ describe('database schema (real PostgreSQL)', () => {
   });
 
   it('matches the entities exactly: no drift between the hand-written migrations and the code', async () => {
-    // Asks TypeORM "what SQL would make the database match the entities?". Anything returned is drift.
     const pending = await t.app.get(DataSource).driver.createSchemaBuilder().log();
     expect(pending.upQueries.map((q) => q.query)).toEqual([]);
   });
 
   describe('the "one live payment per company" index agrees with the domain', () => {
-    // The migration lists the live statuses as SQL text; the domain defines them as code. If they ever drift
-    // apart, the double-charge guard would silently protect the wrong thing. So check every status, for real.
     const insertPayment = (status: string, companyForRow: string) =>
       queryDatabase(
         t.databaseUrl,

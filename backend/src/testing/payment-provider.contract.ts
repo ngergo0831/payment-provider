@@ -97,7 +97,6 @@ export function describePaymentProviderContract(name: string, makeSubject: () =>
 
       it.each([
         ['USD', 4900],
-        // Odd minor units (19.99), and above every real provider's minimum charge (Stripe refuses e.g. EUR 0.01).
         ['EUR', 1999],
         ['JPY', 4900],
       ])('rule 2: reports back exactly the amount it was given (%s, %d minor units)', async (currency, minor) => {

@@ -26,8 +26,6 @@ function setup() {
   return { provider, payments, reconcile, payer };
 }
 
-// Which rows the real query returns, and recovery from a lost webhook or an outage, are tested against PostgreSQL in
-// test/reconciliation.e2e-spec.ts. These pin the schedule the use case asks for and how it copes with failures.
 describe('ReconcilePaymentsUseCase', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);

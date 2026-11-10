@@ -7,12 +7,7 @@
  * defence, not a licence: the code does not log secrets on purpose. It recognises the shapes of the secrets we handle.
  */
 const SECRET_SHAPES: RegExp[] = [
-  /\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9*]+/g, // Stripe API keys, also in their masked form
-  /\bwhsec_[A-Za-z0-9*]+/g, // webhook signing secrets
-  /\b\w+_secret_\w+/g, // PaymentIntent client secrets: pi_3UZx..._secret_... (the id itself contains underscores)
-  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, // an Authorization header
-  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, // a JWT
-];
+  /\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9*]+/g,  /\bwhsec_[A-Za-z0-9*]+/g,  /\b\w+_secret_\w+/g,  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g,];
 
 export const REDACTED = '[redacted]';
 

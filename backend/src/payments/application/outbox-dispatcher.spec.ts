@@ -101,8 +101,7 @@ describe('OutboxDispatcher', () => {
     it('never blocks the other messages: one bad message, the rest are still delivered', async () => {
       const { outbox, dispatcher, companies, succeeded } = setup();
       succeeded('company-1');
-      outbox.add(PAYMENT_SUCCEEDED, { paymentId: 'p-2' }); // malformed: names no company
-      succeeded('company-3');
+      outbox.add(PAYMENT_SUCCEEDED, { paymentId: 'p-2' });      succeeded('company-3');
 
       const report = await dispatcher.dispatchDue(T0);
 
@@ -191,7 +190,7 @@ describe('retryDelayMs', () => {
     [4, 40_000],
     [5, 80_000],
     [6, 160_000],
-    [7, 300_000], // capped at 5 minutes
+    [7, 300_000],
     [20, 300_000],
   ])('after failure %d waits %d ms', (failures, expected) => {
     expect(retryDelayMs(failures)).toBe(expected);

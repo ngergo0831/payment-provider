@@ -2,7 +2,6 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { type FormEvent, useEffect, useState } from 'react';
 
-// loadStripe injects Stripe's script: call it once per key, not on every render.
 const stripeByKey = new Map<string, Promise<Stripe | null>>();
 function stripeFor(publishableKey: string) {
   if (!stripeByKey.has(publishableKey)) stripeByKey.set(publishableKey, loadStripe(publishableKey));
@@ -20,8 +19,6 @@ export function StripeCheckout({ publishableKey, clientSecret, onSubmitted }: Pr
   const stripePromise = stripeFor(publishableKey);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  // Stripe's script comes from js.stripe.com: a content blocker or a flaky connection can stop it. Without this the
-  // form would just sit there with a disabled Pay button and no explanation.
   useEffect(() => {
     let current = true;
     const failed = () => {
@@ -59,7 +56,6 @@ function CardForm({ onSubmitted }: { onSubmitted: () => void }) {
     if (!stripe || !elements) return;
     setBusy(true);
     setMessage(undefined);
-    // 'if_required': card payments finish here (3-D Secure opens Stripe's own dialog); only redirect-based methods leave the page.
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: window.location.href },

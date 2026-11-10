@@ -37,8 +37,7 @@ describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', (
       expect(account).toMatchObject({ tokenType: 'Bearer', accessToken: expect.stringMatching(/^[\w-]+\.[\w-]+\.[\w-]+$/) });
 
       const { iat, exp } = signer.decode<{ iat: number; exp: number }>(account.accessToken);
-      expect(exp - iat).toBe(24 * 3600); // the configured JWT_EXPIRES_IN
-
+      expect(exp - iat).toBe(24 * 3600);
       const res = await status(account.accessToken).expect(200);
       expect(res.body).toEqual({
         company: { id: account.company.id, name: 'Fresh Co', status: 'PENDING_PAYMENT', activatedAt: null },
@@ -88,7 +87,7 @@ describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', (
       const { company } = await register();
       const expired = signer.sign(
         { ...claims(company.id), exp: Math.floor(Date.now() / 1000) - 60 },
-        { subject: 'u', issuer: 'payment-service' }, // this signer has no default expiry, so `exp` above is the only one
+        { subject: 'u', issuer: 'payment-service' },
       );
       await status(expired).expect(401);
     });

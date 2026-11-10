@@ -29,8 +29,6 @@ export class CreatePaymentsAndWebhookEvents1794239203917 implements MigrationInt
 
     await queryRunner.query(`CREATE UNIQUE INDEX "uq_payments_provider_ref" ON "payments" ("provider_ref")`);
 
-    // THE double-charge guard: a company can have at most ONE open (non-final) payment.
-    // The list must equal OPEN_STATUSES in the domain; an e2e test checks that they agree.
     await queryRunner.query(`
       CREATE UNIQUE INDEX "uq_payments_one_open_per_company" ON "payments" ("company_id")
       WHERE "status" IN ('CREATED', 'REQUIRES_ACTION', 'PROCESSING', 'FAILED')`);

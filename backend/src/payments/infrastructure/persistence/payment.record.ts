@@ -28,8 +28,6 @@ export class PaymentRecord {
   @Column({ name: 'provider_ref', type: 'varchar', length: 255, nullable: true })
   providerRef: string | null;
 
-  // bigint: minor units can exceed 32 bits (Money allows up to 2^53-1). The driver returns bigint as a STRING,
-  // so it is converted back to a number; that is safe because Money guarantees a safe integer.
   @Column({
     name: 'amount_minor',
     type: 'bigint',

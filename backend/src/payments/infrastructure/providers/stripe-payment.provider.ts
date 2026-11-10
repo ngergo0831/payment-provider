@@ -46,16 +46,11 @@ export class StripePaymentProvider extends PaymentProvider {
           amount: input.amount.amountMinor,
           currency: input.amount.currency.toLowerCase(),
           automatic_payment_methods: { enabled: true },
-          // Echoed back on every event, so a webhook can find our payment even if we never stored Stripe's id.
           metadata: { paymentId: input.paymentId, companyId: input.companyId },
         },
-        // Contract rule 1: the same payment id is the same idempotency key, so a retry returns the same intent.
-        // (Stripe remembers a key for 24 hours; our flow only ever retries within minutes.)
         { idempotencyKey: `payment-create-${input.paymentId}` },
       ),
     );
-    // An idempotent replay returns the response of the first request, i.e. a stale snapshot. The contract promises the
-    // CURRENT state (the provider is the source of truth), so read it back. One extra call, once per payment.
     return this.retrievePayment(created.id);
   }
 
@@ -68,7 +63,6 @@ export class StripePaymentProvider extends PaymentProvider {
 
     let event: Stripe.Event;
     try {
-      // Checks the signature over the exact bytes and rejects timestamps older than 5 minutes (replay protection).
       event = this.client.webhooks.constructEvent(rawBody, signature, this.settings.webhookSecret);
     } catch {
       throw new InvalidWebhookSignatureException();

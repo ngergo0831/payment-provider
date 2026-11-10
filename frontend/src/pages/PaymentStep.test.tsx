@@ -7,8 +7,6 @@ import type { CheckoutConfig, Payment, PaymentCheckout } from '../api/types';
 import { formatMoney } from '../format';
 import { PaymentStep } from './PaymentStep';
 
-// Stripe's card form is an iframe from stripe.com: it cannot run in a test. Replace it with a stand-in that
-// keeps the same contract (Elements -> useStripe/useElements -> confirmPayment), so OUR logic is what gets tested.
 const confirmPayment = vi.fn();
 vi.mock('@stripe/stripe-js', () => ({ loadStripe: vi.fn(async () => ({})) }));
 vi.mock('@stripe/react-stripe-js', () => ({

@@ -10,7 +10,6 @@ export class HealthController {
     private readonly database: TypeOrmHealthIndicator,
   ) {}
 
-  /** Readiness: 503 when the database does not answer within 2 s, because orchestrators act on the status code. */
   @Get()
   @HealthCheck()
   check(): Promise<HealthCheckResult> {

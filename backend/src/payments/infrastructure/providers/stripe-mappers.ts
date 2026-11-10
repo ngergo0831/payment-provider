@@ -8,14 +8,12 @@ export function mapIntentStatus(intent: Pick<Stripe.PaymentIntent, 'status' | 'l
     case 'succeeded':
       return PaymentStatus.SUCCEEDED;
     case 'processing':
-    case 'requires_capture': // we capture automatically, so this is "in flight" for us
-      return PaymentStatus.PROCESSING;
+    case 'requires_capture':      return PaymentStatus.PROCESSING;
     case 'requires_action':
       return PaymentStatus.REQUIRES_ACTION;
     case 'canceled':
       return PaymentStatus.CANCELED;
     case 'requires_payment_method':
-      // A brand-new intent also waits here. Only a recorded error means an attempt actually FAILED.
       return intent.last_payment_error ? PaymentStatus.FAILED : PaymentStatus.CREATED;
     default:
       return PaymentStatus.CREATED;

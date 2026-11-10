@@ -16,7 +16,6 @@ export function logRequests(req: Request, res: Response, next: NextFunction): vo
     if (QUIET_PATHS.has(req.path)) return;
 
     const milliseconds = Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6);
-    // Set by the JWT guard, so it exists only on authenticated routes.
     const companyId = (req as Request & { user?: { companyId?: string } }).user?.companyId;
     const line = `[${(req as RequestWithId).id}] ${req.method} ${shorten(req.path)} -> ${res.statusCode} ${milliseconds}ms${companyId ? ` company=${companyId}` : ''}`;
 

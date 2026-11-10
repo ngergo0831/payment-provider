@@ -10,14 +10,10 @@ const stripe = {
   STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
 };
 
-// What each numeric setting accepts and rejects. An empty value is rejected everywhere: it must not silently become 0.
 const NUMBERS: Record<string, { accepted: string[]; rejected: string[] }> = {
   PORT: { accepted: ['8080'], rejected: ['abc', '0', '70000', '30.5', ''] },
   PLAN_PRICE_MINOR: { accepted: ['5000'], rejected: ['0', '-5', '49.5', 'abc', ''] },
-  RECONCILE_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'often', ''] }, // 0 switches the timer off
-  OUTBOX_POLL_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'fast', ''] }, // 0 switches the timer off
-  RATE_LIMIT_PER_MINUTE: { accepted: [], rejected: ['0', '-1', 'many', ''] }, // there is no "off"
-};
+  RECONCILE_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'often', ''] },  OUTBOX_POLL_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'fast', ''] },  RATE_LIMIT_PER_MINUTE: { accepted: [], rejected: ['0', '-1', 'many', ''] },};
 const numberCases = (kind: 'accepted' | 'rejected') =>
   Object.entries(NUMBERS).flatMap(([name, values]) => values[kind].map((value) => [name, value]));
 
@@ -181,10 +177,10 @@ describe('validateEnv', () => {
       });
 
       it.each([
-        ['STRIPE_SECRET_KEY', 'pk_test_abc'], // a publishable key where the SECRET one belongs
+        ['STRIPE_SECRET_KEY', 'pk_test_abc'],
         ['STRIPE_SECRET_KEY', 'not-a-key'],
         ['STRIPE_SECRET_KEY', 'sk_test_'],
-        ['STRIPE_PUBLISHABLE_KEY', 'sk_test_abc'], // the secret key where the public one belongs: a dangerous mix-up
+        ['STRIPE_PUBLISHABLE_KEY', 'sk_test_abc'],
         ['STRIPE_WEBHOOK_SECRET', 'sk_test_abc'],
         ['STRIPE_WEBHOOK_SECRET', ''],
       ])('%s rejects %j', (name, value) => {

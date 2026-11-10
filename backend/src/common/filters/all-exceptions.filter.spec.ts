@@ -20,7 +20,6 @@ function handle(exception: unknown) {
   return sent;
 }
 
-// The envelope, validation errors and unknown errors are tested through a real app in ../error-handling.spec.ts.
 describe('AllExceptionsFilter', () => {
   let error: ReturnType<typeof jest.spyOn>;
 

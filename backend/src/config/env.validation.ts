@@ -23,7 +23,6 @@ export enum Environment {
 }
 
 export class EnvironmentVariables {
-  // Required, no default: defaulting to development would let a deploy that forgot it run with the mock provider.
   @IsEnum(Environment)
   NODE_ENV: Environment;
 
@@ -33,20 +32,15 @@ export class EnvironmentVariables {
   @IsEnum(LogFormat)
   LOG_FORMAT: LogFormat = LogFormat.Text;
 
-  // Decorators are evaluated bottom-up, and we report only the first failure per variable, so for every number the
-  // most fundamental rule (@IsInt) goes last: "abc" then reads "must be an integer", not "must not be less than 1".
   @ToNumber()
   @Max(65535)
   @Min(1)
   @IsInt()
   PORT: number = 3000;
 
-  // Required, no default: a connection string carries credentials and must be supplied by the environment.
-  // Validation messages name the variable, never its value, so the password cannot leak into error output.
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL: string;
 
-  // HS256 needs a secret at least as long as its 256-bit output, or it is brute-forceable. Required, no default.
   @MinLength(32)
   JWT_SECRET: string;
 
@@ -61,7 +55,6 @@ export class EnvironmentVariables {
   @Matches(/^[A-Za-z]{3}$/, { message: 'PLAN_CURRENCY must be a 3-letter currency code such as USD' })
   PLAN_CURRENCY: string = 'USD';
 
-  // Required, no default, for the same reason as NODE_ENV.
   @IsEnum(PaymentProviderName)
   PAYMENT_PROVIDER: PaymentProviderName;
 
@@ -115,14 +108,10 @@ function combinationProblems(env: EnvironmentVariables): string[] {
     problems.push(`PLAN_PRICE_MINOR / PLAN_CURRENCY: ${error.message}`);
   }
 
-  // The mock's webhook "signature" is a fixed, public string. In production anyone could forge a "payment succeeded"
-  // webhook and activate accounts for free. The mock is for development and tests only.
   if (isProduction && env.PAYMENT_PROVIDER === PaymentProviderName.Mock) {
     problems.push('PAYMENT_PROVIDER=mock is not allowed when NODE_ENV=production');
   }
 
-  // The secret in .env.example is public (it is in the repository). Anyone who knows it can forge tokens, so a
-  // production deployment that copied the example file unchanged must fail loudly instead of running insecurely.
   if (isProduction && env.JWT_SECRET.startsWith(DEV_SECRET_PREFIX)) {
     problems.push('JWT_SECRET is the public development example; set a real secret');
   }

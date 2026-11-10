@@ -29,7 +29,6 @@ const ALLOWED_TRANSITIONS: Readonly<Record<PaymentStatus, readonly PaymentStatus
     PaymentStatus.CANCELED,
   ],
   [PaymentStatus.REQUIRES_ACTION]: [PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED, PaymentStatus.FAILED, PaymentStatus.CANCELED],
-  // Once submitted, money may be in flight: it cannot be canceled, only resolved one way or the other.
   [PaymentStatus.PROCESSING]: [PaymentStatus.SUCCEEDED, PaymentStatus.FAILED],
   [PaymentStatus.FAILED]: [PaymentStatus.REQUIRES_ACTION, PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED, PaymentStatus.CANCELED],
   [PaymentStatus.SUCCEEDED]: [],

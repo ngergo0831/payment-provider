@@ -34,7 +34,6 @@ class OnboardingStatusDto {
 export class OnboardingController {
   constructor(private readonly getStatus: GetOnboardingStatusUseCase) {}
 
-  /** Takes no id: the company comes from the token, so a caller can only ever see their own. */
   @Get('status')
   @ApiOperation({ summary: "Where is the caller's company in onboarding?" })
   @ApiOkResponse({ type: OnboardingStatusDto })

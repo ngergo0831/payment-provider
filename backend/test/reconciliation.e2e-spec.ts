@@ -23,7 +23,6 @@ describe('reconciliation (real PostgreSQL)', () => {
   });
 
   describe('which payments are due (the real query)', () => {
-    // Its own database: the seeded rows point at provider references that do not exist, so they must not leak into other tests.
     let q: TestApp;
     beforeAll(async () => {
       q = await createTestApp();

@@ -6,8 +6,6 @@ export interface Session {
 
 const KEY = 'payment-service.session';
 
-// sessionStorage (not localStorage): the session ends with the tab. Every access is guarded, because storage can be
-// blocked (private windows, strict browser settings); the app then simply works without remembering anything.
 export function loadSession(): Session | null {
   try {
     const raw = sessionStorage.getItem(KEY);
@@ -24,7 +22,7 @@ export function saveSession(session: Session): void {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(session));
   } catch {
-    /* not remembered: fine */
+    void 0;
   }
 }
 
@@ -32,6 +30,6 @@ export function clearSession(): void {
   try {
     sessionStorage.removeItem(KEY);
   } catch {
-    /* nothing to clear */
+    void 0;
   }
 }

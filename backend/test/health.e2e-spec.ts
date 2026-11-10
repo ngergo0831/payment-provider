@@ -24,7 +24,6 @@ describe('database connection and /health (real PostgreSQL)', () => {
       await lost.app.get(DataSource).destroy();
 
       const res = await lost.http.get('/health').expect(503);
-      // The shared error envelope: the database's own error message is not repeated to the caller.
       expect(res.body).toMatchObject({ statusCode: 503, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' });
     } finally {
       await lost.close();

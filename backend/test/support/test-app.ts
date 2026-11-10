@@ -16,8 +16,6 @@ export interface TestApp {
 
 export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-at-least-32-chars';
 
-// Connects to the maintenance database `postgres` of the dev container from docker-compose.yml
-// (the `payments` user is its superuser, so it may create databases).
 const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://payments:payments@localhost:5432/postgres';
 
 async function withAdminClient<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
@@ -46,7 +44,6 @@ export interface TestAppOptions {
 let firstProvider: string | undefined;
 
 export async function createTestApp({ beforeInit, env = {} }: TestAppOptions = {}): Promise<TestApp> {
-  // AppModule decides which modules exist (the mock's dev endpoints) when it is first imported, once per test file.
   const provider = env.PAYMENT_PROVIDER ?? 'mock';
   firstProvider ??= provider;
   if (provider !== firstProvider) {
@@ -59,9 +56,6 @@ export async function createTestApp({ beforeInit, env = {} }: TestAppOptions = {
   const databaseUrl = new URL(ADMIN_URL);
   databaseUrl.pathname = `/${dbName}`;
 
-  // EVERY setting the app reads is stated here. The app also loads backend/.env, and real environment variables win over
-  // it, so anything left out would silently come from the developer's own .env (e.g. their Stripe keys, which turned
-  // the mock-provider tests into failures). A test that needs something else says so through `env`.
   Object.assign(process.env, {
     NODE_ENV: 'test',
     PORT: '3000',
@@ -74,23 +68,18 @@ export async function createTestApp({ beforeInit, env = {} }: TestAppOptions = {
     STRIPE_SECRET_KEY: '',
     STRIPE_PUBLISHABLE_KEY: '',
     STRIPE_WEBHOOK_SECRET: '',
-    // No background timers in tests: they trigger delivery and reconciliation themselves, so results are deterministic.
-    // Quiet by default: only errors reach the test output. A test that inspects logs raises it through `env`.
     LOG_LEVEL: 'error',
     LOG_FORMAT: 'text',
     OUTBOX_POLL_INTERVAL_MS: '0',
     RECONCILE_INTERVAL_MS: '0',
-    // Every test client shares one IP; a test of the limit itself sets a low value.
     RATE_LIMIT_PER_MINUTE: '10000',
     ...env,
   });
 
-  // FORCE disconnects any straggling connection, so cleanup can never fail on a busy database.
   const dropDatabase = () => withAdminClient((client) => client.query(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`));
 
   let app: INestApplication | undefined;
   try {
-    // Imported only now: ConfigModule reads process.env the moment AppModule is first evaluated.
     const { AppModule } = await import('../../src/app.module');
     const { configureApp } = await import('../../src/app.setup');
 
@@ -100,11 +89,9 @@ export async function createTestApp({ beforeInit, env = {} }: TestAppOptions = {
     const config = app.get<ConfigService<AppConfig, true>>(ConfigService);
     app.useLogger(new AppLogger(config.get('logLevel', { infer: true }), config.get('logFormat', { infer: true })));
     configureApp(app);
-    // Routes and middleware must be attached BEFORE init(), exactly like main.ts does; afterwards they are ignored.
     beforeInit?.(app);
     await app.init();
   } catch (error) {
-    // The app failed to boot (e.g. invalid configuration, which some tests check on purpose): do not leak the database.
     await app?.close().catch(() => undefined);
     await dropDatabase();
     throw error;

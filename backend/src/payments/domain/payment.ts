@@ -130,7 +130,6 @@ export class Payment {
    */
   applyStatus(next: PaymentStatus, failureCode: string | null = null, now: Date = new Date()): TransitionOutcome {
     if (next === this.state.status) {
-      // A repeat of the same news. The one thing that can still be new is a different decline reason.
       if (next === PaymentStatus.FAILED && failureCode && failureCode !== this.state.failureCode) {
         this.state = { ...this.state, failureCode, updatedAt: now };
         return TransitionOutcome.APPLIED;

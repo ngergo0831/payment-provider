@@ -5,11 +5,8 @@ import { PaymentSynchronizer } from '../payment-synchronizer';
 import { PaymentProvider, ProviderPaymentNotFoundError } from '../ports/payment-provider';
 import { PaymentRepository } from '../ports/repositories';
 
-// A payment is checked once it has been quiet for 2 minutes or a tenth of its age, whichever is longer: a fresh one
-// every few minutes, a day-old one every 2.4 h. FAILED payments stay in: the customer can still retry them in the browser.
 const MIN_QUIET_MS = 2 * 60_000;
 const QUIET_FRACTION_OF_AGE = 0.1;
-// Long enough for slow methods such as SEPA debits, which can stay PROCESSING for up to 14 business days.
 const MAX_AGE_MS = 30 * 24 * 3_600_000;
 const BATCH_SIZE = 50;
 
@@ -44,7 +41,6 @@ export class ReconcilePaymentsUseCase {
         await this.reconcile(payment, now);
       } catch (error) {
         failed++;
-        // A conflict was already logged as an error, with its reason.
         if (!(error instanceof PaymentRecordConflictException)) {
           this.logger.warn(`Reconciling payment ${payment.id} failed: ${(error as Error).message}`);
         }

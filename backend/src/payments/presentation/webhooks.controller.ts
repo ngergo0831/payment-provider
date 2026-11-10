@@ -39,7 +39,6 @@ export class WebhooksController {
     description: 'INVALID_WEBHOOK_SIGNATURE: missing or wrong signature; nothing was processed',
   })
   async receive(@Req() request: RawBodyRequest<Request>): Promise<WebhookAcknowledgement> {
-    // The signature covers the exact bytes the provider sent. A re-serialised JSON body would never verify.
     if (!request.rawBody) throw new BadRequestException('Missing request body');
 
     const event = this.provider.parseWebhook(request.rawBody, request.header(this.provider.webhookSignatureHeader));

@@ -19,7 +19,6 @@ export class GetOnboardingStatusUseCase {
 
   async execute(companyId: string): Promise<OnboardingStatus> {
     const company = await this.companies.findById(companyId);
-    // A valid token can outlive its company (tokens are stateless): that is a 404, not a crash.
     if (!company) throw new CompanyNotFoundException();
 
     return { company, nextStep: company.isActive() ? OnboardingStep.DONE : OnboardingStep.PAYMENT };

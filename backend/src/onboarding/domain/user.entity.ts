@@ -13,8 +13,6 @@ export interface NewAdminUser {
 @Entity('users')
 @Unique('uq_users_email', ['email'])
 @Index('ix_users_company_id', ['companyId'])
-// With lower-case enforced here, a plain UNIQUE on email is already case-insensitive:
-// "Ada@x.com" and "ada@x.com" cannot both exist, even under a race between two registrations.
 @Check('ck_users_email_lowercase', `"email" = lower("email")`)
 export class User {
   @PrimaryColumn('uuid')

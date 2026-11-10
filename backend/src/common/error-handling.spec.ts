@@ -113,8 +113,7 @@ describe('global error handling', () => {
         statusCode: 400,
         code: 'BAD_REQUEST',
         message: expect.any(String),
-        requestId: res.headers['x-request-id'], // exact match: present, and equal to the header
-        timestamp: expect.any(String),
+        requestId: res.headers['x-request-id'],        timestamp: expect.any(String),
       });
     });
   });

@@ -9,7 +9,6 @@ import { Environment } from './config/env.validation';
 import { setupSwagger } from './swagger.setup';
 
 async function bootstrap(): Promise<void> {
-  // bufferLogs: start-up messages wait until our logger is installed, so they are filtered and redacted too.
   const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
   const config = app.get<ConfigService<AppConfig, true>>(ConfigService);
   app.useLogger(new AppLogger(config.get('logLevel', { infer: true }), config.get('logFormat', { infer: true })));
@@ -18,7 +17,6 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
   const port = config.get('port', { infer: true });
 
-  // 0.0.0.0 so the server is reachable from outside a container later on.
   await app.listen(port, '0.0.0.0');
   new Logger('Bootstrap').log(`API listening on port ${port} (${config.get('nodeEnv', { infer: true })})`);
 }

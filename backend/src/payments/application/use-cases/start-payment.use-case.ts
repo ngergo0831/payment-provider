@@ -40,8 +40,6 @@ export class StartPaymentUseCase {
 
     const checkout = await this.startOrResume(companyId);
 
-    // The payment may be dead: canceled by the provider (e.g. it expired), unknown to it, or made with a provider that
-    // is no longer configured. Begin a fresh one instead of handing the customer a dead checkout.
     if (checkout.payment.status === PaymentStatus.CANCELED) return this.startOrResume(companyId);
     return checkout;
   }
@@ -49,7 +47,6 @@ export class StartPaymentUseCase {
   private async startOrResume(companyId: string): Promise<PaymentCheckout> {
     const payment = (await this.payments.findLiveByCompany(companyId)) ?? (await this.createIntent(companyId));
 
-    // Already paid; the company is activated shortly after. Nothing is left to collect, and nothing new is started.
     if (payment.isSucceeded()) return { payment, clientSecret: null };
 
     const remote = await this.fetchRemote(payment);

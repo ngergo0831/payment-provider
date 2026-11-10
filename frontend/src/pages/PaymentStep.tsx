@@ -21,7 +21,6 @@ const SUBMITTED = new Set(['PROCESSING', 'SUCCEEDED']);
 
 export function PaymentStep({ session, onSubmitted, onSessionExpired }: Props) {
   const [state, setState] = useState<State>({ phase: 'loading' });
-  // Read through a ref, so a parent passing new functions every render cannot make us reload the payment in a loop.
   const callbacks = useRef({ onSubmitted, onSessionExpired });
   useEffect(() => {
     callbacks.current = { onSubmitted, onSessionExpired };

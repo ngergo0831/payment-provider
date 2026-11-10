@@ -31,9 +31,6 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
 
   const document = SwaggerModule.createDocument(app, config, { extraModels: [ErrorResponse] });
 
-  // Every endpoint can fail in the standard way (unknown route, bad JSON, unexpected error...).
-  // OpenAPI's `default` response covers "any status not listed", so it is added once here instead of
-  // being repeated on every endpoint. Endpoints still list their own specific statuses (409, 503...).
   for (const path of Object.values(document.paths)) {
     for (const operation of Object.values(path) as unknown[]) {
       if (isOperation(operation) && !operation.responses.default) {

@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { AppConfig } from '../config/configuration';
 import { JwtStrategy } from './jwt.strategy';
 
-// Issuing tokens and every way a token is refused over HTTP are tested in test/auth.e2e-spec.ts.
 describe('JwtStrategy.validate', () => {
   const config = { get: () => ({ secret: 'unit-test-secret-that-is-at-least-32-chars', expiresIn: '1h' }) } as unknown as ConfigService<
     AppConfig,

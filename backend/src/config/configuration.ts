@@ -6,10 +6,8 @@ export interface AppConfig {
   logLevel: LogLevelName;
   logFormat: LogFormat;
   port: number;
-  /** Per client IP, for the endpoints that create something (registration, starting a payment). */
   rateLimitPerMinute: number;
   database: {
-    /** Contains the password: pass it to the driver, never log it. */
     url: string;
   };
   jwt: {
@@ -18,7 +16,6 @@ export interface AppConfig {
   };
   payments: {
     provider: PaymentProviderName;
-    /** Only filled in when the provider is Stripe. The secret key and webhook secret must never be logged or returned. */
     stripe: { secretKey: string; publishableKey: string; webhookSecret: string };
     plan: { priceMinor: number; currency: string };
     outboxPollIntervalMs: number;

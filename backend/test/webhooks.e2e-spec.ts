@@ -33,7 +33,6 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
   };
   const simulate = (providerRef: string, outcome: string, deliverWebhook?: boolean) =>
     t.http.post(`/dev/mock-payments/${providerRef}/simulate`).send({ outcome, deliverWebhook });
-  // `null` means "send NO signature". (`undefined` would trigger the default value, i.e. silently send a valid one.)
   const deliver = (body: object, signature: string | null = MOCK_WEBHOOK_SIGNATURE) => {
     const request = t.http.post('/webhooks/payments').set('Content-Type', 'application/json');
     return (signature === null ? request : request.set(HEADER, signature)).send(JSON.stringify(body));

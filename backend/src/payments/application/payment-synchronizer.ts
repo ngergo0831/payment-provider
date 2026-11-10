@@ -75,8 +75,6 @@ export class PaymentSynchronizer {
       }
 
       payment.markSynced(now);
-      // Queued only at the moment of the transition, in the same transaction as the status change: SUCCEEDED is final,
-      // so this yields exactly one message per payment however many duplicate reports or racing requests there are.
       const messages = outcome === TransitionOutcome.APPLIED && payment.isSucceeded() ? [paymentSucceededMessage(payment)] : [];
 
       try {

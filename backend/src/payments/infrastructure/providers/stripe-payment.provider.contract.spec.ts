@@ -29,7 +29,6 @@ if (!key || !key.startsWith('sk_test_')) {
   describePaymentProviderContract('StripePaymentProvider (Stripe test mode)', () => ({
     provider: new StripePaymentProvider({ secretKey: key, webhookSecret: WEBHOOK_SECRET }, client),
 
-    // Card payments never visibly sit in "processing", so that outcome cannot be produced.
     supportedOutcomes: ['succeed', 'decline', 'require_action', 'cancel'],
 
     drive: async (providerRef, outcome) => {
@@ -41,8 +40,6 @@ if (!key || !key.startsWith('sk_test_')) {
             return_url: 'https://example.com/return',
           });
       } catch (error) {
-        // A declined card makes `confirm` throw: that IS the outcome we asked for. Acting on an already-final payment
-        // is also an error in Stripe, and "nothing happens" is exactly what the contract expects there.
         if (!(error instanceof Stripe.errors.StripeCardError || error instanceof Stripe.errors.StripeInvalidRequestError)) throw error;
       }
     },

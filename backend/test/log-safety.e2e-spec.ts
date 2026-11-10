@@ -37,7 +37,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
 
   async function captureLogs(scenario: () => Promise<void>): Promise<string> {
     captured = [];
-    // `console.error('query failed:', query)` has several arguments: keep ALL of them, not only the first.
     const record = (...args: unknown[]) => void captured.push(asText(args));
     const spies = [
       jest.spyOn(console, 'log').mockImplementation(record),
@@ -78,17 +77,13 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
         .expect(422);
       await t.http.get('/onboarding/status').set('Authorization', `Bearer ${token}tampered`).expect(401);
       await t.http.get('/nope').expect(404);
-      // A body that is not JSON: the parser's error quotes the start of it, so the log must not repeat that text.
       await t.http.post('/auth/register').set('Content-Type', 'application/json').send('BODYLEAK-canary.person@acme').expect(400);
-      // Personal data in a query string: the access log and the error log record the path, never the query.
       await t.http.get('/onboarding/status?email=QUERYLEAK').set(auth).expect(200);
 
       const started = await t.http.post('/payments').set(auth).expect(200);
       clientSecret = started.body.clientSecret;
       expect(clientSecret).toBeTruthy();
 
-      // 4b. An UNEXPECTED database failure reaching the global filter, which logs the stack. The error object carries the
-      //     query and its parameters (the customer's email); they must not end up in the log text.
       const failing = jest
         .spyOn(t.app.get(CompanyRepository), 'findById')
         .mockRejectedValueOnce(
@@ -113,8 +108,6 @@ describe('logs never contain sensitive data (real HTTP + PostgreSQL)', () => {
         .expect(200);
       await t.app.get(OutboxDispatcher).dispatchDue();
 
-      // 6. A stale report about a payment that already succeeded: the synchronizer rejects it and logs a warning, and the
-      //    provider's record it was given carries the client secret. Neither may appear in the log.
       const paid = await t.http.get(`/payments/${started.body.payment.id}`).set(auth).expect(200);
       expect(paid.body.status).toBe('SUCCEEDED');
       await t.app.get(PaymentSynchronizer).apply(started.body.payment.id, {

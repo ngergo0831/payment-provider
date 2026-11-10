@@ -26,7 +26,6 @@ export function App() {
     setNotice(reason);
   }, []);
 
-  // Stable callbacks: the watcher lists them as effect dependencies.
   const onActive = useCallback(() => setStep({ name: 'done' }), []);
   const backToPayment = useCallback(() => setStep({ name: 'payment' }), []);
   const onSessionExpired = useCallback(() => signOut('Your session expired. Please register again.'), [signOut]);

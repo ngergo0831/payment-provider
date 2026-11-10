@@ -14,7 +14,6 @@ import { JwtStrategy } from './jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService<AppConfig, true>) => {
         const { secret, expiresIn } = config.get('jwt', { infer: true });
-        // `as never`: the library types expiresIn as a branded string; our env validation already guarantees the format.
         return { secret, signOptions: { algorithm: JWT_ALGORITHM, expiresIn: expiresIn as never } };
       },
     }),

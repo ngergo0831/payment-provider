@@ -15,7 +15,6 @@ export enum LogFormat {
 
 const SEVERITY: LogLevel[] = ['fatal', 'error', 'warn', 'log', 'debug'];
 
-/** Nest's console logger, with known secret shapes removed from every line it prints. */
 export class AppLogger extends ConsoleLogger {
   constructor(level: LogLevelName, format: LogFormat) {
     super({ logLevels: SEVERITY.slice(0, SEVERITY.indexOf(level) + 1), json: format === LogFormat.Json });

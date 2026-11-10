@@ -123,7 +123,6 @@ export class MockPaymentProvider extends PaymentProvider {
 
   private mustGet(providerRef: string): MockIntent {
     const intent = this.intentsByRef.get(providerRef);
-    // The mock keeps its payments in memory, so after a restart every stored reference is unknown here.
     if (!intent) throw new ProviderPaymentNotFoundError(providerRef);
     return intent;
   }

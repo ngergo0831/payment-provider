@@ -64,8 +64,6 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
     const record = toRecord(payment);
 
     await this.records.manager.transaction(async (manager) => {
-      // Optimistic locking: the WHERE clause only matches while the stored version is still the one we loaded.
-      // If someone else saved in between, zero rows match and nothing is overwritten.
       const result = await manager
         .createQueryBuilder()
         .update(PaymentRecord)
@@ -80,12 +78,9 @@ export class TypeOrmPaymentRepository extends PaymentRepository {
         .where('id = :id AND version = :version', { id: record.id, version: record.version })
         .execute();
 
-      // Throwing inside the transaction rolls it back, so no outbox message is left behind for a change that did not happen.
       if (result.affected !== 1) throw new PaymentConcurrentModificationError(payment.id);
 
       if (messages.length > 0) {
-        // Timestamps come from the APPLICATION clock, not the database's: the dispatcher decides "is it due?" with the
-        // application clock, and two machines' clocks always differ a little. One clock for scheduling decisions.
         const now = new Date();
         await manager.insert(
           OutboxRecord,

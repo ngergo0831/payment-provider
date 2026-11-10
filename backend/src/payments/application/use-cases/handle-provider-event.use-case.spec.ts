@@ -23,8 +23,6 @@ async function setup({ linked = true } = {}) {
   return { provider, payments, handle, payment, providerRef };
 }
 
-// Delivery, redelivery, simultaneous deliveries, conflicts and retries after an outage are tested over real HTTP
-// and PostgreSQL in test/webhooks.e2e-spec.ts. These are the cases that need a hand-made event to reach.
 describe('HandleProviderEventUseCase', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);

@@ -21,8 +21,6 @@ function setup(pricing = new FixedPricing()) {
   return { provider, payments, build, useCase: build() };
 }
 
-// The everyday paths (start, resume, double click, decline, outage, self-repair) are tested over real HTTP and
-// PostgreSQL in test/payments.e2e-spec.ts. These are the cases that need a fake to reach.
 describe('StartPaymentUseCase', () => {
   it('charges the configured price in the configured currency (yen are whole: no hidden 100x)', async () => {
     const { useCase } = setup(new FixedPricing(Money.of(5000, 'JPY')));

@@ -7,8 +7,7 @@ import { DropUserRole1794310000000 } from './1794310000000-DropUserRole';
 import { DropWebhookEvents1794320000000 } from './1794320000000-DropWebhookEvents';
 
 /**
- * Every migration, in the order they were written, listed explicitly for the same reason as ENTITIES.
- * Never edit or reorder a migration that has been committed: add a new one instead.
+ * Never edit or reorder a migration that has been committed: add a new one instead!
  */
 export const MIGRATIONS: (new () => MigrationInterface)[] = [
   CreateCompaniesAndUsers1794237392899,

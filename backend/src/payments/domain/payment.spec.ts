@@ -207,7 +207,6 @@ describe('invariants hold for any order of provider reports', () => {
 
         const outcome = payment.applyStatus(next, code, new Date(T0.getTime() + step + 1));
 
-        // 1. The outcome is exactly what the specification says.
         const expected =
           next === before.status
             ? next === FAILED && code && code !== before.failureCode
@@ -218,17 +217,13 @@ describe('invariants hold for any order of provider reports', () => {
               : TransitionOutcome.REJECTED;
         expect(outcome).toBe(expected);
 
-        // 2. A rejected or unchanged report leaves the payment byte-for-byte untouched.
         if (outcome !== TransitionOutcome.APPLIED) expect(payment.toSnapshot()).toEqual(before);
 
-        // 3. A failure reason exists only on a FAILED payment.
         if (payment.status !== FAILED) expect(payment.failureCode).toBeNull();
 
-        // 4. The FIRST final status wins, forever: no later report can change it.
         if (firstFinal === null && isFinal(payment.status)) firstFinal = payment.status;
         if (firstFinal !== null) expect(payment.status).toBe(firstFinal);
 
-        // 5. Money identity and linkage never change through status reports.
         expect(payment.amount.equals(before.amount)).toBe(true);
         expect(payment.companyId).toBe(before.companyId);
         expect(payment.id).toBe(before.id);

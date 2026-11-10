@@ -57,9 +57,6 @@ export class RegisterDto {
   fullName: string;
 
   @ApiProperty({ type: CompanyDetailsDto })
-  // @ValidateNested alone is not enough: it SKIPS a missing value and validates an array element by element
-  // (an empty array has none, so it passes). Either would reach the use case and end as a 500.
-  // @IsObject rejects undefined, null, strings, numbers and arrays, so "company is required" is an explicit 422.
   @IsObject()
   @ValidateNested()
   @Type(() => CompanyDetailsDto)

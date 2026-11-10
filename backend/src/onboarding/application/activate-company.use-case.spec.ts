@@ -2,7 +2,6 @@ import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { InMemoryCompanyRepository } from '../../testing/in-memory-onboarding';
 import { ActivateCompanyUseCase } from './activate-company.use-case';
 
-// Activation and its idempotency are tested end to end in test/payment-flow.e2e-spec.ts.
 describe('ActivateCompanyUseCase', () => {
   it('reports an unknown company as a domain exception', async () => {
     const useCase = new ActivateCompanyUseCase(new InMemoryCompanyRepository());

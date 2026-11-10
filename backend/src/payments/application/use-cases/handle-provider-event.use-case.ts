@@ -42,7 +42,6 @@ export class HandleProviderEventUseCase {
     try {
       await this.synchronizer.apply(payment.id, remote);
     } catch (error) {
-      // A retry cannot fix a conflict; acknowledging stops the provider redelivering it for days. It is logged as an error.
       if (!(error instanceof PaymentRecordConflictException)) throw error;
       return EventHandlingResult.CONFLICT;
     }
@@ -67,8 +66,6 @@ export class HandleProviderEventUseCase {
     const byReference = await this.payments.findByProviderRef(event.providerRef);
     if (byReference) return byReference;
 
-    // We may have crashed between "the provider created the payment" and "we stored its reference". The provider echoes
-    // our payment id, so the link can be repaired: but only for a payment that has no reference yet (never re-link).
     if (!event.paymentId) return null;
     const byId = await this.payments.findById(event.paymentId);
     return byId && byId.providerRef === null ? byId : null;

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthenticatedUser } from './current-user.decorator';
+import { AuthenticatedUser } from './authenticated-user';
 
 export const JWT_ALGORITHM = 'HS256';
 export const JWT_ISSUER = 'payment-service';

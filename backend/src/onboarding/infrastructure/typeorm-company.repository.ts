@@ -7,7 +7,6 @@ import { CompanyRepository } from '../application/ports';
 import { Company } from '../domain/company.entity';
 import { User } from '../domain/user.entity';
 
-/** Must match the constraint name declared on the User entity and created by the migration. */
 const UNIQUE_USER_EMAIL = 'uq_users_email';
 
 @Injectable()

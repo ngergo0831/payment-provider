@@ -68,7 +68,6 @@ export class InMemoryPaymentRepository extends PaymentRepository {
 
     if (this.conflictsToInject > 0 && stored) {
       this.conflictsToInject--;
-      // Someone else "saved first": bump the stored version so the caller's copy is stale.
       this.rows.set(payment.id, { ...stored, version: stored.version + 1 });
       throw new PaymentConcurrentModificationError(payment.id);
     }
@@ -76,8 +75,7 @@ export class InMemoryPaymentRepository extends PaymentRepository {
 
     const next = { ...payment.toSnapshot(), version: payment.version + 1 };
     this.rows.set(payment.id, next);
-    this.outbox.push(...messages); // only reached when the save succeeded, like the real transaction
-    return Payment.restore(next);
+    this.outbox.push(...messages);    return Payment.restore(next);
   }
 
   async recordSynced(paymentId: string, at: Date): Promise<void> {
