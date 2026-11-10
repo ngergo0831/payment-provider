@@ -1,4 +1,4 @@
-import { CompanyRepository } from '../onboarding/application/ports';
+import { CompanyRepository } from '../onboarding/application/company.repository';
 import { Company } from '../onboarding/domain/company.entity';
 import { User } from '../onboarding/domain/user.entity';
 

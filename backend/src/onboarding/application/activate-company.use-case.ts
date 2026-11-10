@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CompanyNotFoundException } from '../../common/errors/exceptions';
-import { CompanyRepository } from './ports';
+import { CompanyRepository } from './company.repository';
 
 @Injectable()
 export class ActivateCompanyUseCase {

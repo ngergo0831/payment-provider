@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Company } from '../domain/company.entity';
-import { normalizeEmail } from '../domain/email';
+import { normalizeEmail } from '../domain/user.entity';
 import { User } from '../domain/user.entity';
-import { CompanyRepository } from './ports';
+import { CompanyRepository } from './company.repository';
 
 export interface RegisterCompanyAdminCommand {
   email: string;

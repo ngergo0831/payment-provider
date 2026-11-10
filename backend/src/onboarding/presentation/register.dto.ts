@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsEmail, IsISO31661Alpha2, IsObject, IsOptional, IsString, Length, MaxLength, ValidateNested } from 'class-validator';
-import { normalizeEmail } from '../domain/email';
+import { normalizeEmail } from '../domain/user.entity';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const email = ({ value }: { value: unknown }) => (typeof value === 'string' ? normalizeEmail(value) : value);

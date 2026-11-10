@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { isUniqueViolation } from '../../common/database/pg-errors';
 import { EmailAlreadyRegisteredException } from '../../common/errors/exceptions';
-import { CompanyRepository } from '../application/ports';
+import { CompanyRepository } from '../application/company.repository';
 import { Company } from '../domain/company.entity';
 import { User } from '../domain/user.entity';
 

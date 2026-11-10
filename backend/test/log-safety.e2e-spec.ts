@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { QueryFailedError } from 'typeorm';
-import { CompanyRepository } from '../src/onboarding/application/ports';
+import { CompanyRepository } from '../src/onboarding/application/company.repository';
 import { Company } from '../src/onboarding/domain/company.entity';
 import { User } from '../src/onboarding/domain/user.entity';
 import { OutboxDispatcher } from '../src/payments/application/outbox-dispatcher';

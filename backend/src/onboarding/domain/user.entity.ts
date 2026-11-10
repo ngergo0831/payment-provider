@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { Check, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, Unique } from 'typeorm';
 import { Company } from './company.entity';
 
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export interface NewAdminUser {
   /** Must already be normalised to lower case (the database rejects anything else). */
   email: string;

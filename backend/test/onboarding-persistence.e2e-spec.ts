@@ -1,4 +1,4 @@
-import { CompanyRepository } from '../src/onboarding/application/ports';
+import { CompanyRepository } from '../src/onboarding/application/company.repository';
 import { Company, CompanyStatus } from '../src/onboarding/domain/company.entity';
 import { User } from '../src/onboarding/domain/user.entity';
 import { createTestApp, queryDatabase, TestApp } from './support/test-app';

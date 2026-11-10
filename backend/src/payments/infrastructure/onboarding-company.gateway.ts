@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ActivateCompanyUseCase } from '../../onboarding/application/activate-company.use-case';
-import { CompanyRepository } from '../../onboarding/application/ports';
+import { CompanyRepository } from '../../onboarding/application/company.repository';
 import { BillingProfile, CompanyGateway } from '../application/ports/collaborators';
 
 @Injectable()

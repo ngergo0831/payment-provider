@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyNotFoundException } from '../../common/errors/exceptions';
 import { Company } from '../domain/company.entity';
-import { CompanyRepository } from './ports';
+import { CompanyRepository } from './company.repository';
 
 export enum OnboardingStep {
   PAYMENT = 'PAYMENT',

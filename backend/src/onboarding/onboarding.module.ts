@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { ActivateCompanyUseCase } from './application/activate-company.use-case';
 import { GetOnboardingStatusUseCase } from './application/get-onboarding-status.use-case';
-import { CompanyRepository } from './application/ports';
+import { CompanyRepository } from './application/company.repository';
 import { RegisterCompanyAdminUseCase } from './application/register-company-admin.use-case';
 import { Company } from './domain/company.entity';
 import { User } from './domain/user.entity';

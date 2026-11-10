@@ -1,4 +1,4 @@
-import { CompanyRepository } from '../src/onboarding/application/ports';
+import { CompanyRepository } from '../src/onboarding/application/company.repository';
 import { Company } from '../src/onboarding/domain/company.entity';
 import {
   LivePaymentAlreadyExistsError,

@@ -1,6 +1,23 @@
 import { Company } from './company.entity';
+import { normalizeEmail } from './user.entity';
 
 const newCompany = () => Company.register({ name: 'Acme Ltd', country: 'HU', taxId: 'HU12345678', billingEmail: 'billing@acme.example' });
+
+describe('normalizeEmail', () => {
+  it.each([
+    ['Jane@Acme.Example', 'jane@acme.example'],
+    ['  jane@acme.example  ', 'jane@acme.example'],
+    ['\tJANE@ACME.EXAMPLE\n', 'jane@acme.example'],
+    ['already@normal.example', 'already@normal.example'],
+  ])('%j -> %j', (input, expected) => {
+    expect(normalizeEmail(input)).toBe(expected);
+  });
+
+  it('is idempotent', () => {
+    const once = normalizeEmail(' MiXeD@Case.EXAMPLE ');
+    expect(normalizeEmail(once)).toBe(once);
+  });
+});
 
 describe('Company', () => {
   it('stores a missing tax id as null, not undefined', () => {
