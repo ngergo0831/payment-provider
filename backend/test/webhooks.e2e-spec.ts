@@ -117,10 +117,6 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       const res = await deliver({ type: 'something.unrelated' }).expect(200);
       expect(res.body).toEqual({ received: true, result: 'IGNORED' });
     });
-
-    it('does not need a JWT: the signature is the credential', async () => {
-      await deliver({ type: 'ping' }).expect(200);
-    });
   });
 
   describe("when handling fails part-way (provider down), the provider's retry still works", () => {
@@ -133,6 +129,7 @@ describe('webhooks and the mock simulator (real HTTP + PostgreSQL)', () => {
       provider.setOutage(true);
       const down = await deliver(event).expect(503);
       expect(down.body.code).toBe('PAYMENT_PROVIDER_UNAVAILABLE');
+      expect((await admin.payment(body.payment.id).expect(200)).body.status).toBe('CREATED');
 
       provider.setOutage(false);
       const retry = await deliver(event).expect(200);

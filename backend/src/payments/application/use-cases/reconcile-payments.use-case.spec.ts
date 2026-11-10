@@ -2,8 +2,6 @@ import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import { FakeCompanyGateway, FixedPricing, InMemoryPaymentRepository } from '../../../testing/in-memory-payments';
 import { MockOutcome, MockPaymentProvider } from '../../infrastructure/providers/mock-payment.provider';
-import { Money } from '../../domain/money';
-import { Payment } from '../../domain/payment';
 import { PaymentStatus } from '../../domain/payment-status';
 import { PaymentSynchronizer } from '../payment-synchronizer';
 import { ProviderPaymentNotFoundError } from '../ports/payment-provider';
@@ -28,23 +26,13 @@ function setup() {
   return { provider, payments, reconcile, payer };
 }
 
+// Which rows the real query returns, and recovery from a lost webhook or an outage, are tested against PostgreSQL in
+// test/reconciliation.e2e-spec.ts. These pin the schedule the use case asks for and how it copes with failures.
 describe('ReconcilePaymentsUseCase', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
-
-  it('completes a payment whose webhook never arrived, and queues the "payment succeeded" message', async () => {
-    const { provider, payments, reconcile, payer } = setup();
-    const payment = await payer('c1');
-    provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
-
-    const report = await reconcile.execute(later(minutes(5)));
-
-    expect(report).toEqual({ checked: 1, failed: 0 });
-    expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
-    expect(payments.outbox).toHaveLength(1);
-  });
 
   it('also notices a failure the provider reported (an open FAILED payment is still being watched)', async () => {
     const { provider, payments, reconcile, payer } = setup();
@@ -57,39 +45,10 @@ describe('ReconcilePaymentsUseCase', () => {
   });
 
   describe('what it leaves alone', () => {
-    it('payments checked recently: the webhook gets time to arrive first', async () => {
-      const { reconcile, payer } = setup();
-      await payer('c1');
-      expect(await reconcile.execute(later(minutes(1)))).toEqual({ checked: 0, failed: 0 });
-    });
-
     it('abandoned checkouts older than 30 days: it stops asking the provider about them', async () => {
       const { reconcile, payer } = setup();
       await payer('c1');
       expect(await reconcile.execute(later(days(31)))).toEqual({ checked: 0, failed: 0 });
-    });
-
-    it('payments that are already final', async () => {
-      const { provider, reconcile, payer } = setup();
-      const payment = await payer('c1');
-      provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
-      await reconcile.execute(later(minutes(5)));
-
-      expect(await reconcile.execute(later(minutes(10)))).toEqual({ checked: 0, failed: 0 });
-    });
-
-    it('payments the provider has not heard of yet (no reference): resuming checkout handles those', async () => {
-      const { payments, reconcile } = setup();
-      await payments.insert(Payment.start({ companyId: 'c9', provider: 'mock', amount: Money.of(4900, 'USD') }));
-      expect(await reconcile.execute(later(minutes(5)))).toEqual({ checked: 0, failed: 0 });
-    });
-
-    it('payments made with a provider that is no longer configured', async () => {
-      const { payments, reconcile } = setup();
-      const other = Payment.start({ companyId: 'c9', provider: 'stripe', amount: Money.of(4900, 'USD') });
-      other.attachProviderRef('pi_elsewhere');
-      await payments.insert(other);
-      expect(await reconcile.execute(later(minutes(5)))).toEqual({ checked: 0, failed: 0 });
     });
 
     it('a payment it just checked: not asked again until it has been quiet for a while again', async () => {
@@ -129,20 +88,6 @@ describe('ReconcilePaymentsUseCase', () => {
 
       expect(report).toEqual({ checked: 2, failed: 1 });
       expect((await payments.findById(healthy.id))?.status).toBe(PaymentStatus.SUCCEEDED);
-    });
-
-    it('survives a provider outage: reports the failures, changes nothing, and catches up on the next run', async () => {
-      const { provider, payments, reconcile, payer } = setup();
-      const payment = await payer('c1');
-      provider.simulate(payment.providerRef as string, MockOutcome.SUCCEED);
-      provider.setOutage(true);
-
-      expect(await reconcile.execute(later(minutes(5)))).toEqual({ checked: 1, failed: 1 });
-      expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.CREATED);
-
-      provider.setOutage(false);
-      expect(await reconcile.execute(later(minutes(6)))).toEqual({ checked: 1, failed: 0 });
-      expect((await payments.findById(payment.id))?.status).toBe(PaymentStatus.SUCCEEDED);
     });
 
     it('closes a payment the provider has no record of, so it stops being polled', async () => {

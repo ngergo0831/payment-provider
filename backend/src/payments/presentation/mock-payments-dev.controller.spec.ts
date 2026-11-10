@@ -1,14 +1,8 @@
 import { HandleProviderEventUseCase } from '../application/use-cases/handle-provider-event.use-case';
-import { MockPaymentProvider } from '../infrastructure/providers/mock-payment.provider';
 import { StripePaymentProvider } from '../infrastructure/providers/stripe-payment.provider';
 import { MockPaymentsDevController } from './mock-payments-dev.controller';
 
 describe('MockPaymentsDevController', () => {
-  it('drives the mock provider', () => {
-    const controller = new MockPaymentsDevController(new MockPaymentProvider(), {} as HandleProviderEventUseCase);
-    expect(controller.setOutage({ enabled: true })).toEqual({ outage: true });
-  });
-
   it('refuses to be created with the real provider, so a wiring mistake fails at startup', () => {
     const stripe = new StripePaymentProvider({ secretKey: 'sk_test_x', webhookSecret: 'whsec_x' });
     expect(() => new MockPaymentsDevController(stripe, {} as HandleProviderEventUseCase)).toThrow(/need the mock payment provider/);

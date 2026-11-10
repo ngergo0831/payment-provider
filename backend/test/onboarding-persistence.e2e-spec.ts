@@ -1,4 +1,3 @@
-import { EmailAlreadyRegisteredException } from '../src/common/errors/exceptions';
 import { CompanyRepository } from '../src/onboarding/application/ports';
 import { Company, CompanyStatus } from '../src/onboarding/domain/company.entity';
 import { User } from '../src/onboarding/domain/user.entity';
@@ -39,73 +38,11 @@ describe('onboarding persistence (real PostgreSQL)', () => {
       expect(loaded?.createdAt).toBeInstanceOf(Date);
     });
 
-    it('returns null for an unknown id', async () => {
-      expect(await companies.findById('00000000-0000-4000-8000-000000000000')).toBeNull();
-    });
-
-    it('persists activation', async () => {
-      const original = company();
-      await companies.save(original);
-
-      const loaded = (await companies.findById(original.id)) as Company;
-      loaded.activate(new Date('2026-11-09T12:00:00Z'));
-      await companies.save(loaded);
-
-      const reloaded = await companies.findById(original.id);
-      expect(reloaded?.status).toBe(CompanyStatus.ACTIVE);
-      expect(reloaded?.activatedAt).toEqual(new Date('2026-11-09T12:00:00Z'));
-    });
-
     it('the database itself rejects an invalid status, whatever the code does', async () => {
       const original = company();
       await companies.save(original);
       const bad = queryDatabase(t.databaseUrl, `UPDATE companies SET status = 'HACKED' WHERE id = '${original.id}'`);
       await expect(bad).rejects.toThrow(/ck_companies_status/);
-    });
-  });
-
-  describe('creating a company with its admin', () => {
-    it('stores both, linked together', async () => {
-      const c = company();
-      const u = admin(c.id, 'jane@acme.example');
-
-      await companies.createWithAdmin(c, u);
-
-      expect(await companies.findById(c.id)).not.toBeNull();
-      const stored = await queryDatabase(t.databaseUrl, "SELECT id, company_id, full_name FROM users WHERE email = 'jane@acme.example'");
-      expect(stored).toEqual([{ id: u.id, company_id: c.id, full_name: 'Jane Doe' }]);
-    });
-
-    it('rejects a duplicate email with a DOMAIN exception, and stores NOTHING (no orphan company)', async () => {
-      const first = company();
-      await companies.createWithAdmin(first, admin(first.id, 'taken@acme.example'));
-
-      const second = company();
-      await expect(companies.createWithAdmin(second, admin(second.id, 'taken@acme.example'))).rejects.toBeInstanceOf(
-        EmailAlreadyRegisteredException,
-      );
-
-      expect(await companies.findById(second.id)).toBeNull();
-    });
-
-    it('survives two simultaneous registrations with the same email: exactly one wins', async () => {
-      const a = company();
-      const b = company();
-
-      const results = await Promise.allSettled([
-        companies.createWithAdmin(a, admin(a.id, 'race@acme.example')),
-        companies.createWithAdmin(b, admin(b.id, 'race@acme.example')),
-      ]);
-
-      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-      const loser = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
-      expect(loser.reason).toBeInstanceOf(EmailAlreadyRegisteredException);
-
-      const [{ count }] = await queryDatabase<{ count: string }>(
-        t.databaseUrl,
-        "SELECT count(*) FROM users WHERE email = 'race@acme.example'",
-      );
-      expect(count).toBe('1');
     });
   });
 

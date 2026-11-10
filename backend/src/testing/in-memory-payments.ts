@@ -92,8 +92,8 @@ export class FakeCompanyGateway extends CompanyGateway {
   /** Simulate onboarding being unable to activate: every call fails with this until it is cleared. */
   failActivationWith?: Error;
 
-  add(companyId: string, isActive = false): void {
-    this.profiles.set(companyId, { companyId, isActive });
+  add(companyId: string): void {
+    this.profiles.set(companyId, { companyId, isActive: false });
   }
 
   async findBillingProfile(companyId: string): Promise<BillingProfile | null> {

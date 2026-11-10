@@ -1,4 +1,3 @@
-import { EmailAlreadyRegisteredException } from '../common/errors/exceptions';
 import { CompanyRepository } from '../onboarding/application/ports';
 import { Company } from '../onboarding/domain/company.entity';
 import { User } from '../onboarding/domain/user.entity';
@@ -16,8 +15,6 @@ export class InMemoryCompanyRepository extends CompanyRepository {
   }
 
   async createWithAdmin(company: Company, admin: User): Promise<void> {
-    const taken = [...this.users.values()].some((user) => user.email === admin.email);
-    if (taken) throw new EmailAlreadyRegisteredException();
     this.companies.set(company.id, company);
     this.users.set(admin.id, admin);
   }

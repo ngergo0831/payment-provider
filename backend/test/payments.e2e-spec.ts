@@ -77,13 +77,17 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
   });
 
   describe('is safe to call again and again', () => {
-    it('a second call returns the SAME payment and the same secret', async () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('a second call returns the SAME payment and the same secret, and the provider is asked to create only once', async () => {
       const admin = await newAdmin();
+      const create = jest.spyOn(provider, 'createPayment');
       const first = await admin.start().expect(200);
       const second = await admin.start().expect(200);
 
       expect(second.body.payment.id).toBe(first.body.payment.id);
       expect(second.body.clientSecret).toBe(first.body.clientSecret);
+      expect(create).toHaveBeenCalledTimes(1);
       expect(await admin.paymentRows()).toHaveLength(1);
     });
 
@@ -116,6 +120,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
 
       expect(recovered.body.payment.id).toBe(orphan.id);
       expect(recovered.body.payment.providerRef).toEqual(expect.any(String));
+      expect(recovered.body.clientSecret).toEqual(expect.any(String));
       expect(await admin.paymentRows()).toHaveLength(1);
     });
 
@@ -194,6 +199,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
 
       expect(second.body.payment.id).not.toBe(first.body.payment.id);
       expect(second.body.payment.status).toBe('CREATED');
+      expect(second.body.clientSecret).toEqual(expect.any(String));
       const statuses = (await admin.paymentRows()).map((row) => row.status as string).sort();
       expect(statuses).toEqual(['CANCELED', 'CREATED']);
     });
@@ -211,6 +217,7 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
 
       expect(second.body.payment.id).not.toBe(first.body.payment.id);
       expect(second.body.payment.status).toBe('CREATED');
+      expect(second.body.clientSecret).toEqual(expect.any(String));
       const statuses = (await admin.paymentRows()).map((row) => row.status as string).sort();
       expect(statuses).toEqual(['CANCELED', 'CREATED']);
     });
@@ -219,10 +226,13 @@ describe('POST /payments and GET /payments/:id (real HTTP + PostgreSQL)', () => 
       const admin = await newAdmin();
       const first = await admin.start().expect(200);
       await queryDatabase(t.databaseUrl, `UPDATE payments SET provider = 'stripe' WHERE id = '${first.body.payment.id}'`);
+      const retrieve = jest.spyOn(provider, 'retrievePayment');
 
       const second = await admin.start().expect(200);
 
+      expect(retrieve).not.toHaveBeenCalled();
       expect(second.body.payment.id).not.toBe(first.body.payment.id);
+      expect(second.body.payment.status).toBe('CREATED');
       const rows = await admin.paymentRows();
       expect(rows.find((row) => row.id === first.body.payment.id)).toMatchObject({ status: 'CANCELED' });
     });

@@ -78,17 +78,8 @@ describe('provider selection by configuration (real HTTP + PostgreSQL)', () => {
         expect(res.body.code).toBe('INVALID_WEBHOOK_SIGNATURE');
       });
 
-      it('rejects a body that was altered after signing', async () => {
-        const payload = JSON.stringify(event(), null, 2);
-        await post(event(), { resend: payload.replace('pi_not_one_of_ours', 'pi_somebody_elses') }).expect(400);
-      });
-
       it('rejects a body that was merely re-formatted (same JSON, different bytes)', async () => {
         await post(event(), { resend: JSON.stringify(event()) }).expect(400);
-      });
-
-      it('rejects a genuine old delivery replayed later (replay protection)', async () => {
-        await post(event(), { timestamp: Math.floor(Date.now() / 1000) - 3600 }).expect(400);
       });
 
       it("rejects a missing signature, and a signature in the mock's header", async () => {

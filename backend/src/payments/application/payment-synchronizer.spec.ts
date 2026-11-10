@@ -67,7 +67,7 @@ describe('PaymentSynchronizer', () => {
       expect(repo.saveCalls).toBe(3);
     });
 
-    it('does not write again when the winner already applied the SAME news: no retry storm', async () => {
+    it('does not write or announce again when the winner already applied the SAME news: no retry storm', async () => {
       const { synchronizer, payment, repo } = await setup();
       const news = remote({ status: PaymentStatus.SUCCEEDED });
 
@@ -76,6 +76,7 @@ describe('PaymentSynchronizer', () => {
       expect(results.every((saved) => saved.status === PaymentStatus.SUCCEEDED)).toBe(true);
       expect(repo.saveCalls).toBeLessThanOrEqual(5);
       expect((await repo.findById(payment.id))?.version).toBe(1);
+      expect(repo.outbox).toHaveLength(1);
     });
 
     it('gives up after 3 attempts with the conflict error, rather than looping forever', async () => {
@@ -114,15 +115,6 @@ describe('PaymentSynchronizer', () => {
       await synchronizer.apply(payment.id, news);
       await synchronizer.apply(payment.id, news);
       await synchronizer.apply(payment.id, news);
-
-      expect(repo.outbox).toHaveLength(1);
-    });
-
-    it('is queued ONCE when five requests report the success at the same moment', async () => {
-      const { synchronizer, payment, repo } = await setup();
-      const news = remote({ status: PaymentStatus.SUCCEEDED });
-
-      await Promise.all(Array.from({ length: 5 }, () => synchronizer.apply(payment.id, news)));
 
       expect(repo.outbox).toHaveLength(1);
     });

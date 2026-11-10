@@ -1,4 +1,4 @@
-import { Environment, validateEnv } from './env.validation';
+import { validateEnv } from './env.validation';
 
 const DATABASE_URL = 'postgres://payments:s3cret-pw@localhost:5432/payments';
 const JWT_SECRET = 'unit-test-secret-that-is-32-chars+';
@@ -10,32 +10,41 @@ const stripe = {
   STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
 };
 
+// What each numeric setting accepts and rejects. An empty value is rejected everywhere: it must not silently become 0.
+const NUMBERS: Record<string, { accepted: string[]; rejected: string[] }> = {
+  PORT: { accepted: ['8080'], rejected: ['abc', '0', '70000', '30.5', ''] },
+  PLAN_PRICE_MINOR: { accepted: ['5000'], rejected: ['0', '-5', '49.5', 'abc', ''] },
+  RECONCILE_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'often', ''] }, // 0 switches the timer off
+  OUTBOX_POLL_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'fast', ''] }, // 0 switches the timer off
+  RATE_LIMIT_PER_MINUTE: { accepted: [], rejected: ['0', '-1', 'many', ''] }, // there is no "off"
+};
+const numberCases = (kind: 'accepted' | 'rejected') =>
+  Object.entries(NUMBERS).flatMap(([name, values]) => values[kind].map((value) => [name, value]));
+
 describe('validateEnv', () => {
   it('applies defaults for everything except the required settings', () => {
-    const env = validateEnv(valid);
-    expect(env.PORT).toBe(3000);
-    expect(env.DATABASE_URL).toBe(DATABASE_URL);
-    expect(env.JWT_EXPIRES_IN).toBe('24h');
+    expect(validateEnv(valid)).toMatchObject({
+      DATABASE_URL,
+      JWT_EXPIRES_IN: '24h',
+      PORT: 3000,
+      PLAN_PRICE_MINOR: 4900,
+      PLAN_CURRENCY: 'USD',
+      RECONCILE_INTERVAL_MS: 60000,
+      OUTBOX_POLL_INTERVAL_MS: 1000,
+      RATE_LIMIT_PER_MINUTE: 20,
+    });
   });
 
-  it('converts PORT from a string to a number', () => {
-    const env = validateEnv({ ...valid, ...stripe, PORT: '8080', NODE_ENV: 'production' });
-    expect(env.PORT).toBe(8080);
-    expect(env.NODE_ENV).toBe(Environment.Production);
+  it.each(numberCases('accepted'))('converts %s=%j from a string to a number', (name, value) => {
+    expect(validateEnv({ ...valid, [name]: value })).toMatchObject({ [name]: Number(value) });
+  });
+
+  it.each(numberCases('rejected'))('rejects %s=%j', (name, value) => {
+    expect(() => validateEnv({ ...valid, [name]: value })).toThrow(new RegExp(name));
   });
 
   it('ignores unrelated variables (process.env contains hundreds)', () => {
     expect(() => validateEnv({ ...valid, PATH: '/usr/bin', HOME: '/home/x' })).not.toThrow();
-  });
-
-  it.each([
-    ['not a number', 'abc'],
-    ['zero', '0'],
-    ['too large', '70000'],
-    ['a decimal', '30.5'],
-    ['empty', ''],
-  ])('rejects PORT that is %s', (_label, port) => {
-    expect(() => validateEnv({ ...valid, PORT: port })).toThrow(/PORT/);
   });
 
   it.each([
@@ -215,51 +224,9 @@ describe('validateEnv', () => {
     });
   });
 
-  describe('RECONCILE_INTERVAL_MS', () => {
-    it('defaults to one minute, and 0 (timer off) is allowed', () => {
-      expect(validateEnv(valid).RECONCILE_INTERVAL_MS).toBe(60000);
-      expect(validateEnv({ ...valid, RECONCILE_INTERVAL_MS: '0' }).RECONCILE_INTERVAL_MS).toBe(0);
-    });
-
-    it.each([['-1'], ['1.5'], ['often'], ['']])('rejects %j (an empty value must not silently switch the safety net off)', (value) => {
-      expect(() => validateEnv({ ...valid, RECONCILE_INTERVAL_MS: value })).toThrow(/RECONCILE_INTERVAL_MS/);
-    });
-  });
-
-  describe('OUTBOX_POLL_INTERVAL_MS', () => {
-    it('defaults to 1000, and 0 (timer off) is allowed', () => {
-      expect(validateEnv(valid).OUTBOX_POLL_INTERVAL_MS).toBe(1000);
-      expect(validateEnv({ ...valid, OUTBOX_POLL_INTERVAL_MS: '0' }).OUTBOX_POLL_INTERVAL_MS).toBe(0);
-    });
-
-    it.each([['-1'], ['1.5'], ['fast'], ['']])('rejects %j', (value) => {
-      expect(() => validateEnv({ ...valid, OUTBOX_POLL_INTERVAL_MS: value })).toThrow(/OUTBOX_POLL_INTERVAL_MS/);
-    });
-  });
-
-  describe('RATE_LIMIT_PER_MINUTE', () => {
-    it('defaults to 20', () => {
-      expect(validateEnv(valid).RATE_LIMIT_PER_MINUTE).toBe(20);
-    });
-
-    it.each([['0'], ['-1'], ['many'], ['']])('rejects %j (there is no "off")', (value) => {
-      expect(() => validateEnv({ ...valid, RATE_LIMIT_PER_MINUTE: value })).toThrow(/RATE_LIMIT_PER_MINUTE/);
-    });
-  });
-
   describe('the plan price', () => {
-    it('defaults to 49.00 USD (4900 minor units)', () => {
-      const env = validateEnv(valid);
-      expect(env.PLAN_PRICE_MINOR).toBe(4900);
-      expect(env.PLAN_CURRENCY).toBe('USD');
-    });
-
     it('accepts another supported currency, any letter case', () => {
       expect(validateEnv({ ...valid, PLAN_PRICE_MINOR: '5000', PLAN_CURRENCY: 'jpy' })).toMatchObject({ PLAN_PRICE_MINOR: 5000 });
-    });
-
-    it.each([['0'], ['-5'], ['49.5'], ['abc'], ['']])('rejects PLAN_PRICE_MINOR %j', (price) => {
-      expect(() => validateEnv({ ...valid, PLAN_PRICE_MINOR: price })).toThrow(/PLAN_PRICE_MINOR/);
     });
 
     it.each([['US'], ['USDX'], ['$$$'], ['']])('rejects a malformed PLAN_CURRENCY %j', (currency) => {

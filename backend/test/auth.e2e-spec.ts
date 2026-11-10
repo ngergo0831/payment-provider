@@ -32,9 +32,12 @@ describe('authentication and GET /onboarding/status (real HTTP + PostgreSQL)', (
   });
 
   describe('registration hands back a working token', () => {
-    it('returns a Bearer token that opens the status endpoint for the new company', async () => {
+    it('returns a Bearer token with the configured lifetime that opens the status endpoint for the new company', async () => {
       const account = await register('Fresh Co');
       expect(account).toMatchObject({ tokenType: 'Bearer', accessToken: expect.stringMatching(/^[\w-]+\.[\w-]+\.[\w-]+$/) });
+
+      const { iat, exp } = signer.decode<{ iat: number; exp: number }>(account.accessToken);
+      expect(exp - iat).toBe(24 * 3600); // the configured JWT_EXPIRES_IN
 
       const res = await status(account.accessToken).expect(200);
       expect(res.body).toEqual({

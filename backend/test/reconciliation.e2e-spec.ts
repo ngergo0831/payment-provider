@@ -68,6 +68,7 @@ describe('reconciliation (real PostgreSQL)', () => {
       const syncedLongAgo = await seed({ createdMinutesAgo: 60, syncedMinutesAgo: 10 });
       const failedButOpen = await seed({ status: 'FAILED', createdMinutesAgo: 10 });
       const syncedJustNow = await seed({ createdMinutesAgo: 60, syncedMinutesAgo: 1 });
+      const tooFresh = await seed({ createdMinutesAgo: 1 });
       const oldAndDue = await seed({ status: 'PROCESSING', createdMinutesAgo: 10 * DAY_MINUTES, syncedMinutesAgo: 2 * DAY_MINUTES });
       const oldAndRecentlySynced = await seed({ status: 'PROCESSING', createdMinutesAgo: 10 * DAY_MINUTES, syncedMinutesAgo: 120 });
       const notLinkedYet = await seed({ createdMinutesAgo: 10, providerRef: null });
@@ -79,7 +80,16 @@ describe('reconciliation (real PostgreSQL)', () => {
       const result = await due();
 
       expect(result).toEqual(expect.arrayContaining([neverSynced, syncedLongAgo, failedButOpen, oldAndDue]));
-      for (const excluded of [syncedJustNow, oldAndRecentlySynced, notLinkedYet, alreadyPaid, canceled, abandoned, otherProvider]) {
+      for (const excluded of [
+        syncedJustNow,
+        tooFresh,
+        oldAndRecentlySynced,
+        notLinkedYet,
+        alreadyPaid,
+        canceled,
+        abandoned,
+        otherProvider,
+      ]) {
         expect(result).not.toContain(excluded);
       }
     });

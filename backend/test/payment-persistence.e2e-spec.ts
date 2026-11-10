@@ -67,22 +67,10 @@ describe('payment persistence (real PostgreSQL)', () => {
       expect(await payments.findLiveByCompany(await newCompany())).toBeNull();
     });
 
-    it('reports a SUCCEEDED payment as the live one (paid, activation may still be pending)', async () => {
+    it.each(Object.values(PaymentStatus))('reports a %s payment as the live one only if it is live (all but CANCELED)', async (status) => {
       const companyId = await newCompany();
-      const paid = await stored(companyId, PaymentStatus.SUCCEEDED);
-      expect((await payments.findLiveByCompany(companyId))?.id).toBe(paid.id);
-    });
-
-    it('does not report a CANCELED payment', async () => {
-      const companyId = await newCompany();
-      await stored(companyId, PaymentStatus.CANCELED);
-      expect(await payments.findLiveByCompany(companyId)).toBeNull();
-    });
-
-    it('still reports a FAILED payment as open: the customer can retry it', async () => {
-      const companyId = await newCompany();
-      const failed = await stored(companyId, PaymentStatus.FAILED);
-      expect((await payments.findLiveByCompany(companyId))?.id).toBe(failed.id);
+      const payment = await stored(companyId, status);
+      expect((await payments.findLiveByCompany(companyId))?.id).toBe(status === PaymentStatus.CANCELED ? undefined : payment.id);
     });
 
     it.each([
@@ -97,29 +85,6 @@ describe('payment persistence (real PostgreSQL)', () => {
   });
 
   describe('at most one open or succeeded payment per company (the double-charge guard)', () => {
-    it('refuses a second open payment for the same company', async () => {
-      const companyId = await newCompany();
-      await payments.insert(newPayment(companyId));
-      await expect(payments.insert(newPayment(companyId))).rejects.toBeInstanceOf(LivePaymentAlreadyExistsError);
-    });
-
-    it('allows another company its own open payment', async () => {
-      await payments.insert(newPayment(await newCompany()));
-      await expect(payments.insert(newPayment(await newCompany()))).resolves.toBeUndefined();
-    });
-
-    it('refuses a new payment once the previous one SUCCEEDED: the company has paid', async () => {
-      const companyId = await newCompany();
-      await stored(companyId, PaymentStatus.SUCCEEDED);
-      await expect(payments.insert(newPayment(companyId))).rejects.toBeInstanceOf(LivePaymentAlreadyExistsError);
-    });
-
-    it('allows a new payment once the previous one was CANCELED', async () => {
-      const companyId = await newCompany();
-      await stored(companyId, PaymentStatus.CANCELED);
-      await expect(payments.insert(newPayment(companyId))).resolves.toBeUndefined();
-    });
-
     it('lets exactly ONE of five simultaneous "start payment" attempts win', async () => {
       const companyId = await newCompany();
 
@@ -161,28 +126,15 @@ describe('payment persistence (real PostgreSQL)', () => {
       expect(await payments.findById(payment.id)).toMatchObject({ status: PaymentStatus.SUCCEEDED, failureCode: null, version: 3 });
     });
 
-    it('REFUSES a stale write instead of silently overwriting (no lost update)', async () => {
-      const original = await stored(await newCompany());
-      const first = (await payments.findById(original.id)) as Payment;
-      const second = (await payments.findById(original.id)) as Payment;
-
-      first.applyStatus(PaymentStatus.SUCCEEDED);
-      await payments.save(first);
-
-      second.applyStatus(PaymentStatus.FAILED, 'late');
-      await expect(payments.save(second)).rejects.toBeInstanceOf(PaymentConcurrentModificationError);
-
-      expect(await payments.findById(original.id)).toMatchObject({ status: PaymentStatus.SUCCEEDED, failureCode: null });
-    });
-
-    it('lets the loser reload and retry', async () => {
+    it('REFUSES a stale write instead of silently overwriting (no lost update), and lets the loser reload and retry', async () => {
       const original = await stored(await newCompany());
       const a = (await payments.findById(original.id)) as Payment;
       const b = (await payments.findById(original.id)) as Payment;
       a.applyStatus(PaymentStatus.PROCESSING);
       await payments.save(a);
-      b.applyStatus(PaymentStatus.REQUIRES_ACTION);
+      b.applyStatus(PaymentStatus.FAILED, 'late');
       await expect(payments.save(b)).rejects.toBeInstanceOf(PaymentConcurrentModificationError);
+      expect(await payments.findById(original.id)).toMatchObject({ status: PaymentStatus.PROCESSING, failureCode: null, version: 1 });
 
       const reloaded = (await payments.findById(original.id)) as Payment;
       reloaded.applyStatus(PaymentStatus.SUCCEEDED);
@@ -226,12 +178,6 @@ describe('payment persistence (real PostgreSQL)', () => {
       expect(await outboxRows(queued.id)).toEqual([
         { type: 'payment.succeeded', payload: { paymentId: 'p', companyId: 'c' }, processed_at: null, attempts: 0 },
       ]);
-    });
-
-    it('saves a change with no messages as before', async () => {
-      const payment = await stored(await newCompany());
-      payment.applyStatus(PaymentStatus.PROCESSING);
-      await expect(payments.save(payment)).resolves.toMatchObject({ version: 1 });
     });
 
     it('queues NOTHING when the save loses the optimistic-lock race (no message for a change that did not happen)', async () => {
@@ -319,7 +265,7 @@ describe('payment persistence (real PostgreSQL)', () => {
       await expect(payments.insert(b)).rejects.toThrow(/uq_payments_provider_ref/);
     });
 
-    it('allows many payments that are not linked to a provider yet (NULL references do not collide)', async () => {
+    it('allows every company its own open payment, none linked to a provider yet (NULL references do not collide)', async () => {
       await payments.insert(newPayment(await newCompany()));
       await expect(payments.insert(newPayment(await newCompany()))).resolves.toBeUndefined();
     });

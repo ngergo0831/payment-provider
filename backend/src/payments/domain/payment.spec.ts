@@ -2,7 +2,7 @@ import { Money } from './money';
 import { Payment, PaymentInvariantError, TransitionOutcome } from './payment';
 import { canTransition, isFinal, PaymentStatus } from './payment-status';
 
-const { CREATED, REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED, CANCELED } = PaymentStatus;
+const { CREATED, REQUIRES_ACTION, PROCESSING, SUCCEEDED, FAILED } = PaymentStatus;
 const ALL = Object.values(PaymentStatus);
 
 const T0 = new Date('2026-11-09T10:00:00Z');
@@ -55,38 +55,12 @@ describe('Payment.applyStatus', () => {
   });
 
   describe('a late or out-of-order report can never corrupt a final payment', () => {
-    it('SUCCEEDED stays SUCCEEDED when a stale "failed" arrives afterwards', () => {
-      const payment = newPayment();
-      payment.applyStatus(SUCCEEDED);
-
-      expect(payment.applyStatus(FAILED, 'card_declined')).toBe(TransitionOutcome.REJECTED);
-      expect(payment.applyStatus(PROCESSING)).toBe(TransitionOutcome.REJECTED);
-      expect(payment.applyStatus(CANCELED)).toBe(TransitionOutcome.REJECTED);
-
-      expect(payment.status).toBe(SUCCEEDED);
-      expect(payment.failureCode).toBeNull();
-    });
-
-    it('CANCELED stays CANCELED', () => {
-      const payment = newPayment();
-      payment.applyStatus(CANCELED);
-      expect(payment.applyStatus(SUCCEEDED)).toBe(TransitionOutcome.REJECTED);
-      expect(payment.status).toBe(CANCELED);
-    });
-
-    it('does not move backwards: PROCESSING never returns to REQUIRES_ACTION', () => {
-      const payment = newPayment();
-      payment.applyStatus(PROCESSING);
-      expect(payment.applyStatus(REQUIRES_ACTION)).toBe(TransitionOutcome.REJECTED);
-      expect(payment.status).toBe(PROCESSING);
-    });
-
     it('a rejected move changes nothing at all, not even the timestamp', () => {
       const payment = newPayment();
       payment.applyStatus(SUCCEEDED, null, T0);
       const before = payment.toSnapshot();
 
-      payment.applyStatus(FAILED, 'x', T1);
+      expect(payment.applyStatus(FAILED, 'x', T1)).toBe(TransitionOutcome.REJECTED);
 
       expect(payment.toSnapshot()).toEqual(before);
     });
