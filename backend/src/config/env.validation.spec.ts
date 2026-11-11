@@ -13,7 +13,10 @@ const stripe = {
 const NUMBERS: Record<string, { accepted: string[]; rejected: string[] }> = {
   PORT: { accepted: ['8080'], rejected: ['abc', '0', '70000', '30.5', ''] },
   PLAN_PRICE_MINOR: { accepted: ['5000'], rejected: ['0', '-5', '49.5', 'abc', ''] },
-  RECONCILE_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'often', ''] },  OUTBOX_POLL_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'fast', ''] },  RATE_LIMIT_PER_MINUTE: { accepted: [], rejected: ['0', '-1', 'many', ''] },};
+  RECONCILE_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'often', ''] },
+  OUTBOX_POLL_INTERVAL_MS: { accepted: ['0'], rejected: ['-1', '1.5', 'fast', ''] },
+  RATE_LIMIT_PER_MINUTE: { accepted: [], rejected: ['0', '-1', 'many', ''] },
+};
 const numberCases = (kind: 'accepted' | 'rejected') =>
   Object.entries(NUMBERS).flatMap(([name, values]) => values[kind].map((value) => [name, value]));
 

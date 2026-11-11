@@ -101,7 +101,8 @@ describe('OutboxDispatcher', () => {
     it('never blocks the other messages: one bad message, the rest are still delivered', async () => {
       const { outbox, dispatcher, companies, succeeded } = setup();
       succeeded('company-1');
-      outbox.add(PAYMENT_SUCCEEDED, { paymentId: 'p-2' });      succeeded('company-3');
+      outbox.add(PAYMENT_SUCCEEDED, { paymentId: 'p-2' });
+      succeeded('company-3');
 
       const report = await dispatcher.dispatchDue(T0);
 

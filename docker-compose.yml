@@ -13,24 +13,17 @@
 
 services:
   postgres:
-    # Major version pinned: `latest` could jump to a new major whose data files cannot read our volume.
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      # Dev-only defaults. The postgres image creates this user and database on its FIRST start only.
       POSTGRES_USER: ${POSTGRES_USER:-payments}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-payments}
       POSTGRES_DB: ${POSTGRES_DB:-payments}
     ports:
-      # 127.0.0.1: reachable from this machine only. A plain "5432:5432" would expose the
-      # database (with its dev password) to the whole network.
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # Named volume: data survives container restarts and recreation.
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      # "Started" is not "ready": Postgres needs a few seconds before it accepts connections.
-      # $$ stops compose substituting the variable; the shell INSIDE the container reads its own env.
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
@@ -44,13 +37,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # `development` on purpose: the mock provider and the example JWT secret are REFUSED when this is `production`.
-      # For a production-style run set NODE_ENV=production together with PAYMENT_PROVIDER=stripe and a real JWT_SECRET.
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3000
-      # Inside the compose network the database is reached by its service name, not localhost.
       DATABASE_URL: postgres://${POSTGRES_USER:-payments}:${POSTGRES_PASSWORD:-payments}@postgres:5432/${POSTGRES_DB:-payments}
-      # Public example value, fine for a local demo. Generate a real one for anything else (see backend/.env.example).
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-it-must-be-32+chars}
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
@@ -59,7 +48,6 @@ services:
       PLAN_PRICE_MINOR: ${PLAN_PRICE_MINOR:-4900}
       PLAN_CURRENCY: ${PLAN_CURRENCY:-USD}
     ports:
-      # Reachable from this machine only: Swagger, and the Stripe CLI running on the host.
       - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
 
   frontend:
@@ -71,9 +59,6 @@ services:
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:80"
 
-  # Opt-in (`--profile stripe`): receives Stripe's webhooks and forwards them to the API, so payments made in Stripe's
-  # test mode activate accounts on a laptop without a public URL. The signing secret it uses is the one you put in
-  # STRIPE_WEBHOOK_SECRET (see the README, "Real Stripe").
   stripe-cli:
     image: stripe/stripe-cli:latest
     profiles: ["stripe"]
@@ -82,7 +67,6 @@ services:
       backend:
         condition: service_healthy
     environment:
-      # The CLI reads its key from here. Empty = it stops with a clear "not logged in" message.
       STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
     command:
       - listen

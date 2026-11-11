@@ -54,7 +54,8 @@ describe('value semantics', () => {
     expect(Object.isFrozen(money)).toBe(true);
     expect(() => {
       (money as { amountMinor: number }).amountMinor = 1;
-    }).toThrow(TypeError);    expect(money.amountMinor).toBe(4900);
+    }).toThrow(TypeError);
+    expect(money.amountMinor).toBe(4900);
   });
 
   it('prints readably and serialises as minor units, never as a decimal', () => {

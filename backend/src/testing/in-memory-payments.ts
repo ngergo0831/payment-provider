@@ -75,7 +75,8 @@ export class InMemoryPaymentRepository extends PaymentRepository {
 
     const next = { ...payment.toSnapshot(), version: payment.version + 1 };
     this.rows.set(payment.id, next);
-    this.outbox.push(...messages);    return Payment.restore(next);
+    this.outbox.push(...messages);
+    return Payment.restore(next);
   }
 
   async recordSynced(paymentId: string, at: Date): Promise<void> {

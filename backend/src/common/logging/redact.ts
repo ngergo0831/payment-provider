@@ -7,7 +7,12 @@
  * defence, not a licence: the code does not log secrets on purpose. It recognises the shapes of the secrets we handle.
  */
 const SECRET_SHAPES: RegExp[] = [
-  /\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9*]+/g,  /\bwhsec_[A-Za-z0-9*]+/g,  /\b\w+_secret_\w+/g,  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g,];
+  /\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9*]+/g,
+  /\bwhsec_[A-Za-z0-9*]+/g,
+  /\b\w+_secret_\w+/g,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g,
+];
 
 export const REDACTED = '[redacted]';
 

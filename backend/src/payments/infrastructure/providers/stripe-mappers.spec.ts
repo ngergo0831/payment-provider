@@ -22,7 +22,9 @@ describe('mapIntentStatus (Stripe status -> ours)', () => {
     ['requires_action', null, PaymentStatus.REQUIRES_ACTION],
     ['canceled', null, PaymentStatus.CANCELED],
     ['requires_confirmation', null, PaymentStatus.CREATED],
-    ['requires_payment_method', null, PaymentStatus.CREATED],    ['requires_payment_method', { code: 'card_declined' }, PaymentStatus.FAILED],  ])('%s (error: %j) -> %s', (status, error, expected) => {
+    ['requires_payment_method', null, PaymentStatus.CREATED],
+    ['requires_payment_method', { code: 'card_declined' }, PaymentStatus.FAILED],
+  ])('%s (error: %j) -> %s', (status, error, expected) => {
     expect(mapIntentStatus({ status, last_payment_error: error } as never)).toBe(expected);
   });
 

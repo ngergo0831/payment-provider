@@ -1,8 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import { ErrorResponse } from './common/http/error-response';
 
 type OperationObject = NonNullable<OpenAPIObject['paths'][string]['get']>;
-import { ErrorResponse } from './common/http/error-response';
 
 export const DOCS_PATH = 'docs';
 
