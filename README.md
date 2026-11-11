@@ -5,7 +5,7 @@
 
 A focused slice of a self-serve B2B onboarding flow, going deep on one integration: **Stripe payments**.
 
-The design decisions and their reasons are in [docs/DESIGN.md](docs/DESIGN.md).
+A short account of the architecture, the Stripe integration, failure handling, tradeoffs, scope, and how AI was used is in [docs/SOLUTION.md](docs/SOLUTION.md). The detailed reasoning is in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Stack
 
@@ -266,5 +266,6 @@ real cause is logged server-side and never sent to the client.
 | Path | Purpose |
 |---|---|
 | `assignment.txt` | The original take-home assignment |
+| `docs/SOLUTION.md` | Short account of the architecture, integration, failures, tradeoffs, scope, and AI usage |
 | `docs/DESIGN.md` | Design decisions: why the code is shaped the way it is |
 | `backend/` | NestJS API |
