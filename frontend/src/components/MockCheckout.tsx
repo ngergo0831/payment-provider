@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, toApiError } from '../api/client';
 import type { MockOutcome } from '../api/types';
 
 interface Props {
   providerRef: string;
+  outage: boolean;
+  onOutageChange: (outage: boolean) => void;
   onSubmitted: () => void;
   onNeedsAttention: () => void;
 }
@@ -16,17 +18,21 @@ const ACTIONS: { outcome: MockOutcome; label: string; settles: boolean }[] = [
   { outcome: 'cancel', label: 'Abandon the payment', settles: false },
 ];
 
-export function MockCheckout({ providerRef, onSubmitted, onNeedsAttention }: Props) {
+export function MockCheckout({ providerRef, outage, onOutageChange, onSubmitted, onNeedsAttention }: Props) {
   const [loseWebhook, setLoseWebhook] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
   async function act(outcome: MockOutcome, settles: boolean) {
+    setBusy(true);
     setError(undefined);
     try {
       await api.simulatePayment(providerRef, outcome, !loseWebhook);
       (settles ? onSubmitted : onNeedsAttention)();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Unexpected error');
+      setError(toApiError(e).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -37,7 +43,7 @@ export function MockCheckout({ providerRef, onSubmitted, onNeedsAttention }: Pro
       </p>
       <div className="actions wrap">
         {ACTIONS.map(({ outcome, label, settles }) => (
-          <button key={outcome} type="button" className={settles ? undefined : 'secondary'} onClick={() => act(outcome, settles)}>
+          <button key={outcome} type="button" className={settles ? undefined : 'secondary'} disabled={busy} onClick={() => void act(outcome, settles)}>
             {label}
           </button>
         ))}
@@ -46,29 +52,28 @@ export function MockCheckout({ providerRef, onSubmitted, onNeedsAttention }: Pro
         <input type="checkbox" checked={loseWebhook} onChange={(e) => setLoseWebhook(e.target.checked)} />
         Lose the provider's webhook (the safety-net job recovers it)
       </label>
-      <OutageToggle />
+      <OutageToggle outage={outage} onChange={onOutageChange} />
       {error && <p role="alert" className="form-error">{error}</p>}
     </section>
   );
 }
 
-export function OutageToggle() {
-  const [outage, setOutage] = useState(false);
+export function OutageToggle({ outage, onChange }: { outage: boolean; onChange: (outage: boolean) => void }) {
   const [error, setError] = useState<string>();
 
   async function toggle(enabled: boolean) {
     try {
-      setOutage((await api.setMockOutage(enabled)).outage);
+      onChange((await api.setMockOutage(enabled)).outage);
       setError(undefined);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Unexpected error');
+      setError(toApiError(e).message);
     }
   }
 
   return (
     <>
       <label className="check">
-        <input type="checkbox" checked={outage} onChange={(e) => toggle(e.target.checked)} />
+        <input type="checkbox" checked={outage} onChange={(e) => void toggle(e.target.checked)} />
         Simulate a provider outage
       </label>
       {error && <p role="alert" className="form-error">{error}</p>}

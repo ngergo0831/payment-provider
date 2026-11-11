@@ -2,6 +2,10 @@ export type CompanyStatus = 'PENDING_PAYMENT' | 'ACTIVE';
 
 export type PaymentStatus = 'CREATED' | 'REQUIRES_ACTION' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELED';
 
+export const isSubmitted = (status: PaymentStatus): boolean => status === 'PROCESSING' || status === 'SUCCEEDED';
+
+export const isFailed = (status: PaymentStatus): boolean => status === 'FAILED' || status === 'CANCELED';
+
 export interface Money {
   amountMinor: number;
   currency: string;

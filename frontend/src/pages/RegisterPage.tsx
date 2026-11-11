@@ -1,10 +1,9 @@
 import { type ChangeEvent, type FormEvent, useState } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, toApiError } from '../api/client';
 import { Field } from '../components/Field';
-import { sampleRegistration } from '../sampleData';
 import type { Session } from '../session';
 
-export interface RegisterFormValues {
+interface RegisterFormValues {
   fullName: string;
   email: string;
   companyName: string;
@@ -14,13 +13,22 @@ export interface RegisterFormValues {
 
 const EMPTY: RegisterFormValues = { fullName: '', email: '', companyName: '', country: '', taxId: '' };
 
-const SERVER_FIELD: Record<keyof RegisterFormValues, string> = {
-  fullName: 'fullName',
-  email: 'email',
+const SERVER_FIELD: Partial<Record<keyof RegisterFormValues, string>> = {
   companyName: 'company.name',
   country: 'company.country',
   taxId: 'company.taxId',
 };
+
+let sampleCount = 0;
+function sampleRegistration(): RegisterFormValues {
+  return {
+    fullName: 'Jane Doe',
+    email: `jane.${Date.now().toString(36)}${++sampleCount}@acme.example`,
+    companyName: 'Acme Kft',
+    country: 'HU',
+    taxId: 'HU12345678',
+  };
+}
 
 interface Props {
   onRegistered: (session: Session) => void;
@@ -35,8 +43,11 @@ export function RegisterPage({ onRegistered }: Props) {
   const bind = (name: keyof RegisterFormValues) => ({
     name,
     value: values[name],
-    error: fieldErrors[SERVER_FIELD[name]],
-    onChange: (event: ChangeEvent<HTMLInputElement>) => setValues({ ...values, [name]: event.target.value }),
+    error: fieldErrors[SERVER_FIELD[name] ?? name],
+    onChange: (event: ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setValues((current) => ({ ...current, [name]: value }));
+    },
   });
 
   async function submit(event: FormEvent) {
@@ -50,23 +61,19 @@ export function RegisterPage({ onRegistered }: Props) {
         fullName: values.fullName,
         company: { name: values.companyName, country: values.country, ...(values.taxId ? { taxId: values.taxId } : {}) },
       });
-      onRegistered({ token: account.accessToken, companyName: account.company.name, email: account.user.email });
-    } catch (error) {
-      showError(error);
+      onRegistered({ token: account.accessToken, companyName: account.company.name });
+    } catch (e) {
+      const error = toApiError(e);
+      if (error.code === 'EMAIL_ALREADY_REGISTERED') setFieldErrors({ email: error.message });
+      else if (error.details.length > 0) setFieldErrors(error.fieldMessages);
+      else setFormError(error.message);
     } finally {
       setSubmitting(false);
     }
   }
 
-  function showError(error: unknown) {
-    if (!(error instanceof ApiError)) throw error;
-    if (error.code === 'EMAIL_ALREADY_REGISTERED') setFieldErrors({ email: error.message });
-    else if (error.details.length > 0) setFieldErrors(error.fieldMessages);
-    else setFormError(error.message);
-  }
-
   return (
-    <form onSubmit={submit} noValidate aria-labelledby="register-title">
+    <form className="card" onSubmit={(event) => void submit(event)} noValidate aria-labelledby="register-title">
       <h2 id="register-title">Create your account</h2>
       <p className="hint">Register your business to get started. Payment comes next.</p>
 

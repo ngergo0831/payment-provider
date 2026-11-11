@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, NETWORK_ERROR, SERVER_UNAVAILABLE } from './client';
+import { api, ApiError, NETWORK_ERROR, SERVER_UNAVAILABLE, toApiError } from './client';
 
 const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -97,5 +97,15 @@ describe('api client', () => {
 
     expect(error).toMatchObject({ status: 500, code: 'INTERNAL_ERROR', unreachable: false });
     expect(error.message).not.toContain('html');
+  });
+});
+
+describe('toApiError', () => {
+  it('passes an ApiError through and wraps anything else in a generic one', () => {
+    const known = new ApiError(409, 'EMAIL_ALREADY_REGISTERED', 'Taken');
+
+    expect(toApiError(known)).toBe(known);
+    expect(toApiError(new TypeError('boom'))).toMatchObject({ code: 'INTERNAL_ERROR', message: 'Something went wrong. Please try again.' });
+    expect(toApiError('a string')).toBeInstanceOf(ApiError);
   });
 });

@@ -5,29 +5,33 @@ import { RegisterPage } from './pages/RegisterPage';
 import { SuccessScreen } from './pages/SuccessScreen';
 import { clearSession, loadSession, saveSession, type Session } from './session';
 
-/** Where the admin is in onboarding. (A reload resumes at `payment`: the backend works out the real state.) */
-type Step = { name: 'payment' } | { name: 'activating'; paymentId?: string } | { name: 'done' };
+// A reload resumes at `payment`: the backend works out the real state.
+type Step = { name: 'payment' } | { name: 'activating'; paymentId: string } | { name: 'done' };
+
+const PAYMENT: Step = { name: 'payment' };
+const DONE: Step = { name: 'done' };
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
-  const [step, setStep] = useState<Step>({ name: 'payment' });
+  const [step, setStep] = useState<Step>(PAYMENT);
   const [notice, setNotice] = useState<string>();
 
   const onRegistered = (next: Session) => {
     saveSession(next);
     setNotice(undefined);
-    setStep({ name: 'payment' });
     setSession(next);
   };
 
   const signOut = useCallback((reason?: string) => {
     clearSession();
     setSession(null);
+    setStep(PAYMENT);
     setNotice(reason);
   }, []);
 
-  const onActive = useCallback(() => setStep({ name: 'done' }), []);
-  const backToPayment = useCallback(() => setStep({ name: 'payment' }), []);
+  const onSubmitted = useCallback((paymentId: string) => setStep({ name: 'activating', paymentId }), []);
+  const onActive = useCallback(() => setStep(DONE), []);
+  const backToPayment = useCallback(() => setStep(PAYMENT), []);
   const onSessionExpired = useCallback(() => signOut('Your session expired. Please register again.'), [signOut]);
 
   return (
@@ -46,11 +50,7 @@ export function App() {
       {!session ? (
         <RegisterPage onRegistered={onRegistered} />
       ) : step.name === 'payment' ? (
-        <PaymentStep
-          session={session}
-          onSubmitted={(paymentId) => setStep({ name: 'activating', paymentId })}
-          onSessionExpired={onSessionExpired}
-        />
+        <PaymentStep session={session} onSubmitted={onSubmitted} onAlreadyActive={onActive} onSessionExpired={onSessionExpired} />
       ) : step.name === 'activating' ? (
         <ActivationWatcher
           session={session}

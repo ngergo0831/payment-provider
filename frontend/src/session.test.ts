@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearSession, loadSession, saveSession } from './session';
 
 const KEY = 'payment-service.session';
-const session = { token: 'tok', companyName: 'Acme', email: 'jane@acme.example' };
+const session = { token: 'tok', companyName: 'Acme' };
 
 beforeEach(() => sessionStorage.clear());
 afterEach(() => vi.restoreAllMocks());
@@ -18,7 +18,7 @@ describe('session storage', () => {
 
   it.each([
     ['not JSON', 'definitely not json'],
-    ['missing the token', JSON.stringify({ companyName: 'Acme', email: 'a@b.co' })],
+    ['missing the token', JSON.stringify({ companyName: 'Acme' })],
     ['a token of the wrong type', JSON.stringify({ ...session, token: 42 })],
     ['not an object', JSON.stringify('hello')],
     ['null', 'null'],

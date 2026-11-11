@@ -17,7 +17,7 @@ header {
   align-items: baseline;
   justify-content: space-between;
 }
-form {
+.card {
   background: #fff;
   padding: 1.5rem;
   border-radius: 0.75rem;
@@ -93,14 +93,4 @@ button.link {
   display: block;
   margin-top: 0.75rem;
   font-size: 0.875rem;
-}
-section {
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
-}
-section section {
-  padding: 0;
-  box-shadow: none;
 }

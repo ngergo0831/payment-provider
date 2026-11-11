@@ -1,88 +1,144 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError } from '../api/client';
-import type { CheckoutConfig, PaymentCheckout } from '../api/types';
-import { MockCheckout, OutageToggle } from '../components/MockCheckout';
-import { StripeCheckout } from '../components/StripeCheckout';
-import { formatMoney } from '../format';
-import type { Session } from '../session';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, toApiError, type ApiError } from "../api/client";
+import {
+  isSubmitted,
+  type CheckoutConfig,
+  type PaymentCheckout,
+} from "../api/types";
+import { MockCheckout, OutageToggle } from "../components/MockCheckout";
+import { StripeCheckout } from "../components/StripeCheckout";
+import { formatMoney } from "../format";
+import type { Session } from "../session";
 
 interface Props {
   session: Session;
-  onSubmitted: (paymentId?: string) => void;
+  onSubmitted: (paymentId: string) => void;
+  onAlreadyActive: () => void;
   onSessionExpired: () => void;
 }
 
 type State =
-  | { phase: 'loading' }
-  | { phase: 'error'; error: ApiError; config?: CheckoutConfig }
-  | { phase: 'ready'; config: CheckoutConfig; checkout: PaymentCheckout };
+  | { phase: "loading" }
+  | { phase: "error"; error: ApiError; config?: CheckoutConfig }
+  | { phase: "ready"; config: CheckoutConfig; checkout: PaymentCheckout };
 
-const SUBMITTED = new Set(['PROCESSING', 'SUCCEEDED']);
-
-export function PaymentStep({ session, onSubmitted, onSessionExpired }: Props) {
-  const [state, setState] = useState<State>({ phase: 'loading' });
-  const callbacks = useRef({ onSubmitted, onSessionExpired });
-  useEffect(() => {
-    callbacks.current = { onSubmitted, onSessionExpired };
-  });
+export function PaymentStep({
+  session,
+  onSubmitted,
+  onAlreadyActive,
+  onSessionExpired,
+}: Props) {
+  const [state, setState] = useState<State>({ phase: "loading" });
+  const [outage, setOutage] = useState(false);
+  const config = useRef<CheckoutConfig>(undefined);
+  const latestLoad = useRef(0);
 
   const load = useCallback(async () => {
-    setState({ phase: 'loading' });
-    let config: CheckoutConfig | undefined;
+    const thisLoad = ++latestLoad.current;
+    const isCurrent = () => thisLoad === latestLoad.current;
+
+    const configRequest = config.current
+      ? Promise.resolve(config.current)
+      : api.checkoutConfig().then((fetched) => (config.current = fetched));
     try {
-      config = await api.checkoutConfig();
-      const checkout = await api.startPayment(session.token);
-      if (SUBMITTED.has(checkout.payment.status)) callbacks.current.onSubmitted(checkout.payment.id);
-      else setState({ phase: 'ready', config, checkout });
-    } catch (error) {
-      if (!(error instanceof ApiError)) throw error;
-      if (error.status === 401) callbacks.current.onSessionExpired();
-      else if (error.code === 'COMPANY_ALREADY_ACTIVE') callbacks.current.onSubmitted();
-      else setState({ phase: 'error', error, config });
+      const [cfg, checkout] = await Promise.all([
+        configRequest,
+        api.startPayment(session.token),
+      ]);
+      if (!isCurrent()) return;
+      if (isSubmitted(checkout.payment.status))
+        onSubmitted(checkout.payment.id);
+      else setState({ phase: "ready", config: cfg, checkout });
+    } catch (e) {
+      const error = toApiError(e);
+      const knownConfig = await configRequest.catch(() => undefined);
+
+      if (!isCurrent()) return;
+      if (error.status === 401) onSessionExpired();
+      else if (error.code === "COMPANY_ALREADY_ACTIVE") onAlreadyActive();
+      else setState({ phase: "error", error, config: knownConfig });
     }
-  }, [session.token]);
+  }, [session.token, onSubmitted, onAlreadyActive, onSessionExpired]);
+
+  const reload = () => {
+    setState({ phase: "loading" });
+    void load();
+  };
 
   useEffect(() => {
     void load();
+    const loads = latestLoad;
+    return () => {
+      loads.current++;
+    };
   }, [load]);
 
-  if (state.phase === 'loading') return <p aria-busy="true">Preparing your payment…</p>;
+  if (state.phase === "loading")
+    return <p role="status">Preparing your payment…</p>;
 
-  if (state.phase === 'error') {
+  if (state.phase === "error") {
     return (
-      <section>
-        <p role="alert" className="form-error">{state.error.message}</p>
-        {state.error.requestId && <p className="hint">Reference: {state.error.requestId}</p>}
+      <section className="card">
+        <p role="alert" className="form-error">
+          {state.error.message}
+        </p>
+        {state.error.requestId && (
+          <p className="hint">Reference: {state.error.requestId}</p>
+        )}
         <div className="actions">
-          <button type="button" onClick={() => void load()}>
+          <button type="button" onClick={reload}>
             Try again
           </button>
         </div>
-        {state.config?.provider === 'mock' && <OutageToggle />}
+        {state.config?.provider === "mock" && (
+          <OutageToggle outage={outage} onChange={setOutage} />
+        )}
       </section>
     );
   }
 
-  const { config, checkout } = state;
+  const { config: checkoutConfig, checkout } = state;
   const { payment, clientSecret } = checkout;
   return (
-    <section>
+    <section className="card">
       <h2>Pay for your plan</h2>
-      <p className="price">{formatMoney(config.price)}</p>
+      <p className="price">{formatMoney(checkoutConfig.price)}</p>
 
-      {payment.status === 'FAILED' && (
+      {payment.status === "FAILED" && (
         <p role="alert" className="form-error">
-          Your last attempt failed{payment.failureCode ? ` (${payment.failureCode.replaceAll('_', ' ')})` : ''}. Nothing was charged: try again or use another card.
+          Your last attempt failed
+          {payment.failureCode
+            ? ` (${payment.failureCode.replaceAll("_", " ")})`
+            : ""}
+          . Nothing was charged: try again or use another card.
         </p>
       )}
-      {payment.status === 'REQUIRES_ACTION' && <p className="hint">Your bank needs to verify this payment. Continue below to complete it.</p>}
+      {payment.status === "REQUIRES_ACTION" && (
+        <p className="hint">
+          Your bank needs to verify this payment. Continue below to complete it.
+        </p>
+      )}
 
-      {config.provider === 'stripe' && config.publishableKey && clientSecret ? (
-        <StripeCheckout publishableKey={config.publishableKey} clientSecret={clientSecret} onSubmitted={() => onSubmitted(payment.id)} />
-      ) : config.provider === 'mock' && payment.providerRef ? (
-        <MockCheckout providerRef={payment.providerRef} onSubmitted={() => onSubmitted(payment.id)} onNeedsAttention={() => void load()} />
+      {checkoutConfig.provider === "stripe" &&
+      checkoutConfig.publishableKey &&
+      clientSecret ? (
+        <StripeCheckout
+          publishableKey={checkoutConfig.publishableKey}
+          clientSecret={clientSecret}
+          onSubmitted={() => onSubmitted(payment.id)}
+        />
+      ) : checkoutConfig.provider === "mock" && payment.providerRef ? (
+        <MockCheckout
+          providerRef={payment.providerRef}
+          outage={outage}
+          onOutageChange={setOutage}
+          onSubmitted={() => onSubmitted(payment.id)}
+          onNeedsAttention={reload}
+        />
       ) : (
-        <p role="alert" className="form-error">Payments are not available right now.</p>
+        <p role="alert" className="form-error">
+          Payments are not available right now.
+        </p>
       )}
     </section>
   );

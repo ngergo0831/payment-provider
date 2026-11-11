@@ -16,10 +16,10 @@ vi.mock('@stripe/react-stripe-js', () => ({
   useElements: () => ({}),
 }));
 
-const session = { token: 'tok', companyName: 'Acme', email: 'jane@acme.example' };
+const session = { token: 'tok', companyName: 'Acme' };
 const price = { amountMinor: 4900, currency: 'USD' };
 const mockConfig: CheckoutConfig = { provider: 'mock', publishableKey: null, price };
-/** The price as shown on screen. Locale-dependent (and may contain a non-breaking space, which the DOM matcher folds into a plain one). */
+// Locale-dependent, and may contain a non-breaking space, which the DOM matcher folds into a plain one.
 const priceText = formatMoney(price).replace(/\s/g, ' ');
 const stripeConfig: CheckoutConfig = { provider: 'stripe', publishableKey: 'pk_test_x', price };
 
@@ -40,15 +40,22 @@ const checkout = (paymentOverrides: Partial<Payment> = {}, clientSecret: string 
 beforeEach(() => confirmPayment.mockReset());
 afterEach(() => vi.restoreAllMocks());
 
-function setup(config: CheckoutConfig, started: PaymentCheckout | ApiError) {
+// `startPayment` answers in order and the last answer repeats; set up before rendering, as the screen asks on mount.
+type Answer = PaymentCheckout | Error;
+
+function setup(config: CheckoutConfig, ...answers: Answer[]) {
   vi.spyOn(api, 'checkoutConfig').mockResolvedValue(config);
   const start = vi.spyOn(api, 'startPayment');
-  if (started instanceof ApiError) start.mockRejectedValue(started);
-  else start.mockResolvedValue(started);
+  answers.forEach((answer, i) => {
+    const respond = () => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
+    if (i === answers.length - 1) start.mockImplementation(respond);
+    else start.mockImplementationOnce(respond);
+  });
   const onSubmitted = vi.fn();
+  const onAlreadyActive = vi.fn();
   const onSessionExpired = vi.fn();
-  render(<PaymentStep session={session} onSubmitted={onSubmitted} onSessionExpired={onSessionExpired} />);
-  return { onSubmitted, onSessionExpired, start };
+  render(<PaymentStep session={session} onSubmitted={onSubmitted} onAlreadyActive={onAlreadyActive} onSessionExpired={onSessionExpired} />);
+  return { onSubmitted, onAlreadyActive, onSessionExpired, start };
 }
 
 describe('PaymentStep with the mock provider', () => {
@@ -67,7 +74,21 @@ describe('PaymentStep with the mock provider', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Pay successfully' }));
 
     expect(simulate).toHaveBeenCalledWith('mock_pi_1', 'succeed', true);
-    expect(onSubmitted).toHaveBeenCalled();
+    expect(onSubmitted).toHaveBeenCalledWith('p1');
+  });
+
+  it('ignores a double click: the provider is told once while the first call is in flight', async () => {
+    let finish: (value: { webhook: string }) => void = () => undefined;
+    const simulate = vi.spyOn(api, 'simulatePayment').mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    setup(mockConfig, checkout());
+    const user = userEvent.setup();
+
+    const pay = await screen.findByRole('button', { name: 'Pay successfully' });
+    await user.dblClick(pay);
+
+    expect(pay).toBeDisabled();
+    expect(simulate).toHaveBeenCalledTimes(1);
+    finish({ webhook: 'PROCESSED' });
   });
 
   it('can lose the webhook on purpose', async () => {
@@ -83,8 +104,7 @@ describe('PaymentStep with the mock provider', () => {
 
   it('after a decline it reloads the payment and says the attempt failed, with the reason', async () => {
     vi.spyOn(api, 'simulatePayment').mockResolvedValue({ webhook: 'PROCESSED' });
-    const { start, onSubmitted } = setup(mockConfig, checkout());
-    start.mockResolvedValueOnce(checkout()).mockResolvedValueOnce(checkout({ status: 'FAILED', failureCode: 'card_declined' }));
+    const { onSubmitted } = setup(mockConfig, checkout(), checkout({ status: 'FAILED', failureCode: 'card_declined' }));
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Decline the card' }));
 
@@ -114,6 +134,17 @@ describe('PaymentStep with Stripe', () => {
     expect(screen.getByRole('button', { name: 'Pay' })).toBeEnabled();
     expect(onSubmitted).not.toHaveBeenCalled();
   });
+
+  it('does not stay stuck on "Processing…" when confirming the payment throws', async () => {
+    confirmPayment.mockRejectedValueOnce(new Error('network down'));
+    const { onSubmitted } = setup(stripeConfig, checkout({ providerRef: 'pi_1' }));
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Pay' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The payment could not be completed');
+    expect(screen.getByRole('button', { name: 'Pay' })).toBeEnabled();
+    expect(onSubmitted).not.toHaveBeenCalled();
+  });
 });
 
 describe('PaymentStep when things are not straightforward', () => {
@@ -123,10 +154,35 @@ describe('PaymentStep when things are not straightforward', () => {
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
   });
 
-  it('goes to the watcher if the company is already active (paid in another tab)', async () => {
-    const { onSubmitted } = setup(mockConfig, new ApiError(409, 'COMPANY_ALREADY_ACTIVE', 'This account is already active'));
+  it('reports an already active company (paid in another tab) so the app can go straight to the end', async () => {
+    const { onAlreadyActive, onSubmitted } = setup(mockConfig, new ApiError(409, 'COMPANY_ALREADY_ACTIVE', 'This account is already active'));
 
-    await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
+    await waitFor(() => expect(onAlreadyActive).toHaveBeenCalledTimes(1));
+    expect(onSubmitted).not.toHaveBeenCalled();
+  });
+
+  it('shows an error with "Try again" instead of an endless spinner when something unexpected is thrown', async () => {
+    setup(mockConfig, new TypeError('boom'), checkout());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText(priceText)).toBeInTheDocument();
+  });
+
+  it('does not report anything once the screen is gone (e.g. "Start over" while it was still loading)', async () => {
+    let fail: (error: Error) => void = () => undefined;
+    vi.spyOn(api, 'checkoutConfig').mockResolvedValue(mockConfig);
+    vi.spyOn(api, 'startPayment').mockReturnValue(new Promise((_resolve, reject) => (fail = reject)));
+    const onSessionExpired = vi.fn();
+    const { unmount } = render(<PaymentStep session={session} onSubmitted={vi.fn()} onAlreadyActive={vi.fn()} onSessionExpired={onSessionExpired} />);
+
+    unmount();
+    fail(new ApiError(401, 'UNAUTHORIZED', 'Unauthorized'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onSessionExpired).not.toHaveBeenCalled();
   });
 
   it('ends the session when the token has expired, instead of offering a "Try again" that can never work', async () => {
@@ -139,8 +195,7 @@ describe('PaymentStep when things are not straightforward', () => {
 
   it('explains a provider outage, shows the request reference, and recovers on "Try again"', async () => {
     const outage = new ApiError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'The payment service is temporarily unavailable. Nothing was charged.', [], 'req-42');
-    const { start } = setup(mockConfig, outage);
-    start.mockRejectedValueOnce(outage).mockResolvedValueOnce(checkout());
+    setup(mockConfig, outage, checkout());
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Nothing was charged');
     expect(screen.getByText('Reference: req-42')).toBeInTheDocument();
@@ -150,13 +205,19 @@ describe('PaymentStep when things are not straightforward', () => {
     expect(await screen.findByText(priceText)).toBeInTheDocument();
   });
 
-  it('lets the demo user switch the simulated outage off even when the payment could not be started', async () => {
-    const setOutage = vi.spyOn(api, 'setMockOutage').mockResolvedValue({ outage: false });
+  it('lets the demo user switch the simulated outage off, even after "Try again" rebuilt the screen', async () => {
+    const setOutage = vi.spyOn(api, 'setMockOutage').mockResolvedValueOnce({ outage: true }).mockResolvedValueOnce({ outage: false });
     setup(mockConfig, new ApiError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'The payment service is temporarily unavailable.'));
     const user = userEvent.setup();
 
     await user.click(await screen.findByLabelText('Simulate a provider outage'));
+    expect(setOutage).toHaveBeenLastCalledWith(true);
 
-    expect(setOutage).toHaveBeenCalledWith(true);
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    const toggle = await screen.findByLabelText('Simulate a provider outage');
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    expect(setOutage).toHaveBeenLastCalledWith(false);
   });
 });

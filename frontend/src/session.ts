@@ -1,17 +1,18 @@
 export interface Session {
   token: string;
   companyName: string;
-  email: string;
 }
 
 const KEY = 'payment-service.session';
 
+// Storage can be blocked (private windows, strict settings): the session then just does not survive a reload.
+
 export function loadSession(): Session | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    const stored: Partial<Session> | null = raw ? JSON.parse(raw) : null;
-    return typeof stored?.token === 'string' && typeof stored.companyName === 'string' && typeof stored.email === 'string'
-      ? { token: stored.token, companyName: stored.companyName, email: stored.email }
+    const stored = raw ? (JSON.parse(raw) as Partial<Session> | null) : null;
+    return typeof stored?.token === 'string' && typeof stored.companyName === 'string'
+      ? { token: stored.token, companyName: stored.companyName }
       : null;
   } catch {
     return null;
@@ -22,7 +23,7 @@ export function saveSession(session: Session): void {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(session));
   } catch {
-    void 0;
+    return;
   }
 }
 
@@ -30,6 +31,6 @@ export function clearSession(): void {
   try {
     sessionStorage.removeItem(KEY);
   } catch {
-    void 0;
+    return;
   }
 }

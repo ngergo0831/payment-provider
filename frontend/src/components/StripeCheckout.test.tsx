@@ -23,18 +23,6 @@ describe('StripeCheckout when Stripe.js cannot be loaded (content blocker, flaky
     expect(await screen.findByRole('alert')).toHaveTextContent('The secure card form could not be loaded');
   });
 
-  it('does not remember the failure: after a reload the same key can load', async () => {
-    loadStripe.mockRejectedValueOnce(new Error('blocked')).mockResolvedValue({});
-    const first = render(<StripeCheckout publishableKey="pk_test_retry" clientSecret="s" onSubmitted={vi.fn()} />);
-    await screen.findByRole('alert');
-    first.unmount();
-
-    render(<StripeCheckout publishableKey="pk_test_retry" clientSecret="s" onSubmitted={vi.fn()} />);
-
-    expect(await screen.findByText('card form')).toBeInTheDocument();
-    expect(loadStripe).toHaveBeenCalledTimes(2);
-  });
-
   it('shows the card form when it loads', async () => {
     loadStripe.mockResolvedValue({});
 

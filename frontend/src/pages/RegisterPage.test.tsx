@@ -24,9 +24,9 @@ describe('RegisterPage', () => {
     render(<RegisterPage onRegistered={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'Fill sample data' }));
-    const first = (screen.getByLabelText('Work email') as HTMLInputElement).value;
+    const first = screen.getByLabelText<HTMLInputElement>('Work email').value;
     await user.click(screen.getByRole('button', { name: 'Fill sample data' }));
-    const second = (screen.getByLabelText('Work email') as HTMLInputElement).value;
+    const second = screen.getByLabelText<HTMLInputElement>('Work email').value;
 
     expect(screen.getByLabelText('Company name')).toHaveValue('Acme Kft');
     expect(screen.getByLabelText('Country (2-letter code)')).toHaveValue('HU');
@@ -43,7 +43,7 @@ describe('RegisterPage', () => {
     expect(register).toHaveBeenCalledWith(
       expect.objectContaining({ fullName: 'Jane Doe', company: { name: 'Acme Kft', country: 'HU', taxId: 'HU12345678' } }),
     );
-    expect(onRegistered).toHaveBeenCalledWith({ token: 'token-1', companyName: 'Acme Kft', email: 'jane@acme.example' });
+    expect(onRegistered).toHaveBeenCalledWith({ token: 'token-1', companyName: 'Acme Kft' });
   });
 
   it('leaves the tax id out of the request when it is empty', async () => {
@@ -90,6 +90,16 @@ describe('RegisterPage', () => {
     await fillSampleAndSubmit();
 
     expect(screen.getByRole('alert')).toHaveTextContent('Cannot reach the server');
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled();
+  });
+
+  it('shows a generic message instead of failing silently when something unexpected is thrown', async () => {
+    vi.spyOn(api, 'register').mockRejectedValue(new TypeError('boom'));
+    render(<RegisterPage onRegistered={vi.fn()} />);
+
+    await fillSampleAndSubmit();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong');
     expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled();
   });
 });

@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
-import { api } from './api/client';
+import { api, ApiError } from './api/client';
 import type { Payment } from './api/types';
 
 beforeEach(() => sessionStorage.clear());
@@ -47,7 +47,7 @@ describe('App: the whole onboarding journey', () => {
 
   it('resumes after a page reload: the saved session goes straight to the payment, nothing is registered twice', async () => {
     mockBackend();
-    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft', email: 'jane@acme.example' }));
+    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft' }));
 
     render(<App />);
 
@@ -57,12 +57,37 @@ describe('App: the whole onboarding journey', () => {
 
   it('"Start over" forgets the session and shows the registration form again', async () => {
     mockBackend();
-    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft', email: 'jane@acme.example' }));
+    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft' }));
     render(<App />);
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Start over' }));
 
     expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
     expect(sessionStorage.getItem('payment-service.session')).toBeNull();
+  });
+
+  it('goes straight to the success screen when the company is already active (paid in another tab)', async () => {
+    mockBackend();
+    vi.spyOn(api, 'startPayment').mockRejectedValue(new ApiError(409, 'COMPANY_ALREADY_ACTIVE', 'This account is already active'));
+    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft' }));
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /You're all set/ })).toBeInTheDocument();
+    expect(api.onboardingStatus).not.toHaveBeenCalled();
+  });
+
+  it('"Start over" while the payment is still loading does not bring back a stale "session expired" notice', async () => {
+    mockBackend();
+    let rejectStart: (error: unknown) => void = () => undefined;
+    vi.spyOn(api, 'startPayment').mockReturnValue(new Promise((_resolve, reject) => (rejectStart = reject)));
+    sessionStorage.setItem('payment-service.session', JSON.stringify({ token: 'tok', companyName: 'Acme Kft' }));
+    render(<App />);
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Start over' }));
+    await act(async () => rejectStart(new ApiError(401, 'UNAUTHORIZED', 'Unauthorized')));
+
+    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
+    expect(screen.queryByText(/session expired/)).not.toBeInTheDocument();
   });
 });

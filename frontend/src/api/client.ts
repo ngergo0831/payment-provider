@@ -13,12 +13,9 @@ import type {
 const BASE = '/api';
 
 export const NETWORK_ERROR = 'NETWORK_ERROR';
-/**
- * The web server answered, but the API behind it did not (a proxy's 502/503/504 page, e.g. the API is restarting).
- * Our own API always answers with a JSON error envelope, so a gateway status WITHOUT one means "the API is not there".
- */
 export const SERVER_UNAVAILABLE = 'SERVER_UNAVAILABLE';
 
+// Our API always answers with a JSON error envelope, so a gateway status without one means the API is not there.
 const GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 export class ApiError extends Error {
@@ -40,6 +37,10 @@ export class ApiError extends Error {
   get fieldMessages(): Record<string, string> {
     return Object.fromEntries(this.details.map((d) => [d.field, d.messages[0]]));
   }
+}
+
+export function toApiError(error: unknown): ApiError {
+  return error instanceof ApiError ? error : new ApiError(0, 'INTERNAL_ERROR', 'Something went wrong. Please try again.');
 }
 
 interface RequestOptions {
@@ -86,7 +87,7 @@ export const api = {
   register: (data: RegisterRequest) => request<RegisteredAccount>('POST', '/auth/register', { body: data }),
   checkoutConfig: () => request<CheckoutConfig>('GET', '/checkout-config'),
   onboardingStatus: (token: string) => request<OnboardingStatus>('GET', '/onboarding/status', { token }),
-  /** Starts a payment, or resumes the open one: safe to call again (a double click, a page reload). */
+  // Starts a payment, or resumes the open one: safe to call again.
   startPayment: (token: string) => request<PaymentCheckout>('POST', '/payments', { token }),
   getPayment: (token: string, id: string) => request<Payment>('GET', `/payments/${id}`, { token }),
 

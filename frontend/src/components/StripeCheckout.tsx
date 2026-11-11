@@ -2,11 +2,9 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { type FormEvent, useEffect, useState } from 'react';
 
-const stripeByKey = new Map<string, Promise<Stripe | null>>();
-function stripeFor(publishableKey: string) {
-  if (!stripeByKey.has(publishableKey)) stripeByKey.set(publishableKey, loadStripe(publishableKey));
-  return stripeByKey.get(publishableKey)!;
-}
+// `<Elements>` needs a stable `stripe` per key, so one instance lives for the whole page.
+// A failed load is only retried by reloading.
+const stripeByKey: Record<string, Promise<Stripe | null>> = {};
 
 interface Props {
   publishableKey: string;
@@ -14,22 +12,18 @@ interface Props {
   onSubmitted: () => void;
 }
 
-/** Stripe collects the card details in its own iframe: card numbers never touch our page or our server. */
 export function StripeCheckout({ publishableKey, clientSecret, onSubmitted }: Props) {
-  const stripePromise = stripeFor(publishableKey);
+  const stripePromise = (stripeByKey[publishableKey] ??= loadStripe(publishableKey));
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let current = true;
-    const failed = () => {
-      stripeByKey.delete(publishableKey);
-      if (current) setLoadFailed(true);
-    };
+    const failed = () => current && setLoadFailed(true);
     stripePromise.then((stripe) => stripe || failed(), failed);
     return () => {
       current = false;
     };
-  }, [stripePromise, publishableKey]);
+  }, [stripePromise]);
 
   if (loadFailed) {
     return (
@@ -56,21 +50,23 @@ function CardForm({ onSubmitted }: { onSubmitted: () => void }) {
     if (!stripe || !elements) return;
     setBusy(true);
     setMessage(undefined);
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: 'if_required',
-    });
-    if (error) {
-      setMessage(error.message ?? 'The payment could not be completed.');
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
+      });
+      if (error) setMessage(error.message ?? 'The payment could not be completed.');
+      else onSubmitted();
+    } catch {
+      setMessage('The payment could not be completed. Please try again.');
+    } finally {
       setBusy(false);
-    } else {
-      onSubmitted();
     }
   }
 
   return (
-    <form onSubmit={submit} aria-label="Card payment">
+    <form onSubmit={(event) => void submit(event)} aria-label="Card payment">
       <PaymentElement />
       {message && <p role="alert" className="form-error">{message}</p>}
       <div className="actions">
