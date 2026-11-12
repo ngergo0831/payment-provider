@@ -16,6 +16,7 @@ React (Vite) · Docker Compose · Swagger
 
 ### Everything at once (Docker)
 
+First, you need npm install, see section below!  
 Requires Docker Desktop. From the repository root:
 
 ```bash
@@ -130,9 +131,9 @@ curl http://localhost:3000/onboarding/status -H "Authorization: Bearer <accessTo
 Both endpoints need the `Authorization: Bearer <accessToken>` header; the company always comes from the token.
 
 - `POST /payments` **starts or resumes** the company's payment and returns what the browser needs to pay (`clientSecret`).
-  Calling it again is always safe: a double click, a page reload, a retry after a declined card or after the provider
-  was down all return the same open payment. A company never has two open payments, and once it has paid it cannot start
-  another one. Like registration, it is rate limited (`429 TOO_MANY_REQUESTS`).
+Calling it again is always safe: a double click, a page reload, a retry after a declined card or after the provider
+was down all return the same open payment. A company never has two open payments, and once it has paid it cannot start
+another one. Like registration, it is rate limited (`429 TOO_MANY_REQUESTS`).
 - `GET /payments/{id}` returns the stored status (cheap to poll). Another company's payment is a `404`.
 
 The price comes from configuration (`PLAN_PRICE_MINOR`, `PLAN_CURRENCY`; default 49.00 USD) and is validated at startup.
@@ -142,12 +143,14 @@ resumes the same payment. Starting a payment does not activate the account; that
 ### How a payment activates the account
 
 1. The provider reports the payment as paid, and our side notices it. Saving that status also **queues a "payment
+
    succeeded" message in the same database transaction** (the outbox, see `docs/DESIGN.md`).
 2. A small timer (`OUTBOX_POLL_INTERVAL_MS`, 1 s by default) delivers queued messages. The company becomes `ACTIVE`.
 3. If delivery fails, the error is recorded and it is retried after a growing delay (5 s, 10 s, 20 s, ... at most 5 minutes
+
    apart). A message is never abandoned, because then a paid company would never be activated: after 10 failed attempts it
-   keeps retrying every 5 minutes, and each failure is logged at `error` level with the reason (also stored in
-   `outbox_messages.last_error`). Once the cause is fixed, the next retry activates the company with no manual step.
+    keeps retrying every 5 minutes, and each failure is logged at `error` level with the reason (also stored in
+    `outbox_messages.last_error`). Once the cause is fixed, the next retry activates the company with no manual step.
 
 Delivery is at-least-once, so activation is idempotent: delivering the same message twice changes nothing.
 
@@ -211,7 +214,7 @@ Open http://localhost:8080, register, and pay with Stripe's test card `4242 4242
 Other test cards: `4000 0000 0000 0002` is declined, and `4000 0027 6000 3184` asks for 3-D Secure. The account activates
 about a second after Stripe confirms the payment.
 
-**Without Docker** (development): put the same three `STRIPE_*` settings and `PAYMENT_PROVIDER=stripe` in `backend/.env`, then
+**Without Docker** (development): put the same three `STRIPE_`* settings and `PAYMENT_PROVIDER=stripe` in `backend/.env`, then
 run the Stripe CLI on your machine (`npm i -g stripe`, or see Stripe's install page) next to the API:
 
 ```bash
